@@ -21,7 +21,7 @@ def test_interp():
     # linearly interp with scipy
     lin_interp = scipy.interpolate.interp1d(x=x[:, 0], y=y, kind="linear", axis=0)
     # now test
-    interp_test = interp.Interp1d(x=x, y=y, differentiability=1)
+    interp_test = interp.Interp1D(x=x, y=y, differentiability=1)
     np.testing.assert_array_almost_equal(
         lin_interp(test_x[:, 0]), interp_test(test_x).detach(), decimal=2.9
     )

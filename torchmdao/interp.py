@@ -5,7 +5,7 @@ from pdb import set_trace
 Tensor = torch.Tensor
 
 
-class Interp1d(gpytorch.models.ExactGP):
+class InterpND(gpytorch.models.ExactGP):
     def __init__(
         self,
         x: Tensor,
@@ -16,7 +16,6 @@ class Interp1d(gpytorch.models.ExactGP):
         # some checks
         assert x.ndim == y.ndim == 2
         assert x.shape[0] == y.shape[0]
-        assert x.shape[1] == 1
         assert differentiability in [1, 2, 3]
         self.n_functions = y.shape[1]
         self.bounds_error = bounds_error
@@ -46,6 +45,7 @@ class Interp1d(gpytorch.models.ExactGP):
         self.likelihood.eval()
 
     def scale_inputs(self, x: Tensor) -> Tensor:
+        """ scale the inputs to the range [0, 1] """
         return (x - self.x_min) / self.x_ptp
 
     def forward(self, x: Tensor):
@@ -69,3 +69,18 @@ class Interp1d(gpytorch.models.ExactGP):
         only return the posterior mean.
         """
         return super().__call__(x).mean
+
+
+class Interp1D(InterpND):
+    def __init__(
+        self,
+        x: Tensor,
+        y: Tensor,
+        differentiability: int = 1,
+        bounds_error: bool = True,
+    ):
+        super().__init__(
+            x=x, y=y, differentiability=differentiability, bounds_error=bounds_error
+        )
+        assert x.shape[1] == 1
+
