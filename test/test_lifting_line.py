@@ -66,9 +66,9 @@ class TestLiftingLine:
             alpha_test = (
                 2.0 * b / (torch.pi * chord) * torch.sum(Ans * torch.sin(ns * theta))
                 + alpha_0s
-                + torch.sum(ns * Ans * torch.sin(ns * theta) / torch.sin(theta)),
+                + torch.sum(ns * Ans * torch.sin(ns * theta) / torch.sin(theta))
             )
-            assert_almost_equal(alpha, alpha_test)
+            assert_almost_equal(alpha.numpy(), alpha_test.numpy())
 
 
 """

@@ -15,12 +15,15 @@ class LiftingLineWing:
     ):
         """
         Inputs:
-            spanwise_loc : (m,) spanwise locations of the m wing segments. The root is 
+            spanwise_loc : shape (m,) spanwise locations of the m wing segments. The root is 
                 considered to be zero and the node is the half-wing span.
-                We assume symmetrical loading so this should just be points from one half of wing.
-            chords : (m,) chord of each wing segment
-            alpha_sections : (m,) AoA (in rad) of each wing segment assuming zero aircraft AoA
-            alpha_0s : (m,) zero lift AoA (in rad) of each wing segment assuming zero aircraft AoA
+                We assume symmetrical loading so this should just be points 
+                from one half of wing.
+            chords : shape (m,) chord of each wing segment
+            alpha_sections : shape (m,) AoA (in rad) of each wing segment assuming zero 
+                aircraft AoA.
+            alpha_0s : shape (m,) zero lift AoA (in rad) of each wing segment assuming zero 
+                aircraft AoA.
             AR : aspect ratio (b^2/S)
         """
         # internalize variables
@@ -51,7 +54,7 @@ class LiftingLineWing:
             self.spanwise_thetas.min() > torch.pi / 2
             and self.spanwise_thetas.max() <= torch.pi
         ), "sanity check"
-        # setup and factorize linear system Ax = b (notebook Apr 24, 2020)
+        # setup and factorize linear system `Ax = b`` (notebook Apr 24, 2020)
         # include only odd n values. Also I want one less coefficient than m since
         # aircraft AoA unknown.
         self.ns = torch.arange(start=3, end=self.m * 2 + 1, step=2)
@@ -65,7 +68,7 @@ class LiftingLineWing:
         )
         self.A_sys_lu = torch.lu(self.A_sys)
 
-    def solve(self, Cl: float):
+    def solve(self, Cl: float) -> None:
         """
         solve lifting line equations given a target aircraft Cl
         """
@@ -75,11 +78,10 @@ class LiftingLineWing:
         # compute the target vector b to solve Ax=b
         b_sys = (
             self.alpha_sections
-            - 2.0
-            * self.span
-            * self.A1
-            * torch.sin(self.spanwise_thetas)
-            / (torch.pi * self.chords)
+            - (
+                (2.0 * self.span * self.A1 * torch.sin(self.spanwise_thetas))
+                / (torch.pi * self.chords)
+            )
             - self.alpha_0s
             - self.A1
         ).reshape((-1, 1))
@@ -88,7 +90,7 @@ class LiftingLineWing:
         self.alpha_aircraft = torch.squeeze(x[0])
         self.Ans = torch.squeeze(x[1:])  # coefficients corresponding to ns
 
-    def induced_drag_coeff(self):
+    def induced_drag_coeff(self) -> Tensor:
         """ compute the induced drag coefficient """
         # compute induced drag factor and span efficiency factor (delta)
         self.induced_drag_factor = torch.sum(self.ns * torch.square(self.Ans / self.A1))
@@ -99,13 +101,13 @@ class LiftingLineWing:
         )
         return self.Cdi
 
-    def alpha_induced_fun(self, spanwise_loc: Tensor):
+    def alpha_induced_fun(self, spanwise_loc: Tensor) -> Tensor:
         """
         Induced AoA at a given spanwise locations.
         Effective angle of attack:
-            alpha_effective = alpha_section + alpha_aircraft - alpha_induced
+            `alpha_effective = alpha_section + alpha_aircraft - alpha_induced`
         Local Section Lift (assuming thin airfoil theory):
-            cl = 2.*torch.pi*(alpha_effective - alpha_0)
+            `cl = 2.*torch.pi*(alpha_effective - alpha_0)`
         """
         assert torch.all(spanwise_loc >= 0) and torch.all(spanwise_loc <= self.span / 2)
         thetas = torch.arccos(-spanwise_loc * 2.0 / self.span).reshape((1, -1))
@@ -115,7 +117,7 @@ class LiftingLineWing:
         )
         return alpha_induced
 
-    def alpha_induced(self):
+    def alpha_induced(self) -> Tensor:
         """ compute induced angle of attack at each spanwise reference """
         ns = self.ns.reshape((1, -1))  # reshape for broadcasting
         thetas = self.spanwise_thetas.reshape((-1, 1))  # reshape for broadcasting
@@ -124,13 +126,13 @@ class LiftingLineWing:
         )
         return alpha_induced
 
-    def alpha_effective(self):
+    def alpha_effective(self) -> Tensor:
         """ compute effective angle of attack at each spanwise reference """
         alpha_induced = self.alpha_induced()
         alpha_effective = self.alpha_sections + self.alpha_aircraft - alpha_induced
         return alpha_effective
 
-    def section_lift_coeff(self):
+    def section_lift_coeff(self) -> Tensor:
         """ compute sectional lift coefficient assuming thin airfoil theory """
         alpha_effective = self.alpha_effective()
         cl = 2.0 * torch.pi * (alpha_effective - self.alpha_0s)
