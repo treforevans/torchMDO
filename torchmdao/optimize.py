@@ -1,95 +1,16 @@
-import numpy as np
+import torch
+from numpy import prod
 from scipy.optimize import minimize, NonlinearConstraint
-from traceback import format_exc
 from logging import getLogger
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Union, Optional, List
+from typing import Union, Optional, List, Tuple
 from warnings import warn
+from functools import cached_property
+from .input_output import DesignVariable, Output
+from .model import ComputeObject
 
 logger = getLogger(__name__)
-
-
-@dataclass
-class DesignVariable:
-    name: str
-    val: Union[float, np.ndarray, list]
-    lower: Optional[float] = None
-    upper: Optional[float] = None
-    finite_diff_step: float = 1e-6  # stepsize used for finite diff calcs. Called `finite_diff_rel_step` in the optimizer but seems to function as expected.
-
-    def __post_init__(self,):
-        assert isinstance(self.name, str)
-        assert isinstance(self.val, (float, np.ndarray, list))
-        assert isinstance(self.finite_diff_step, float)
-
-    def stringify(self) -> str:
-        """
-        Returns a string version of the class that can be immediately used to reproduce
-        it.
-        """
-        return super().__str__()
-
-    def __str__(self) -> str:
-        """
-        For printing in a pretty way.
-        For non-pretty printing in a way that can be copied to reset the 
-        design variable, call `stringify`
-        """
-        string = self.name + ": \n"  # ": (value, lower, upper, active)\n"
-        lvu = np.zeros((np.size(self.val), 4))
-        lvu[:, 0] = np.ravel(self.val)
-        lvu[:, 1] = self.lower if self.lower is not None else -np.inf
-        lvu[:, 2] = self.upper if self.upper is not None else np.inf
-        lvu[:, 3] = [  # determine if bound is active
-            (0 if v > l else -1)
-            + (  # check if lower bound active
-                0 if v < u else 1
-            )  # check if upper bound active. Will cancel if it's equality constraint
-            for (v, l, u) in lvu[:, :3]
-        ]
-        string += np.array2string(
-            lvu, formatter={"float_kind": lambda x: "%.3f" % x}, separator="\t"
-        )
-        return string
-
-
-class Output:
-    def __init__(self, name: str, lower: float = -np.inf, upper: float = np.inf):
-        """ Aircraft output."""
-        assert isinstance(name, str)
-        assert lower is not None, "use -np.inf"
-        assert upper is not None, "use np.inf"
-        self.name = name
-        self.lower = lower
-        self.upper = upper
-        self.val = None  # value can be set later
-
-    def __str__(self):
-        string = self.name + ": \n"  # ": (value, lower, upper, active)\n"
-        lvu = np.zeros(
-            (max(max(np.size(self.lower), np.size(self.upper)), np.size(self.val)), 4)
-        )
-        lvu[:, 0] = np.ravel(self.val)
-        lvu[:, 1] = self.lower
-        lvu[:, 2] = self.upper
-        lvu[:, 3] = [  # determine if bound is active
-            (0 if self.val is None or l is None or v > l else -1)
-            + (  # check if lower bound active
-                0 if self.val is None or u is None or v < u else 1
-            )  # check if upper bound active
-            for (v, l, u) in lvu[:, :3]
-        ]
-        string += np.array2string(
-            lvu, formatter={"float_kind": lambda x: "%.3f" % x}, separator="\t"
-        )
-        return string
-
-
-class ComputeObject(ABC):
-    @abstractmethod
-    def compute(self, to_plot=False):
-        pass
+Tensor = torch.Tensor
+as_tensor = torch.as_tensor
 
 
 class Optimizer:
@@ -97,28 +18,43 @@ class Optimizer:
         self,
         initial_design_variables: List[DesignVariable],
         outputs: List[Output],
-        obj_constr: ComputeObject,
+        compute_object: ComputeObject,
         objective_index: int = 0,
     ):
         """
         Inputs:
             design_variables : list of DesignVariable objects
             outputs : list of Outputs objects
-            obj_constr : ComputeObject what computes all outputs when `obj_constr.compute()` is called
+            compute_object : ComputeObject what computes all outputs when `compute_object.compute()` is called
             objective_index : index of objective in outputs
         """
-        self.initial_design_variables = initial_design_variables
-        # check obj_constr
-        assert isinstance(obj_constr, ComputeObject)
-        self.obj_constr = obj_constr
+        # check compute_object
+        assert isinstance(compute_object, ComputeObject)
+        self.compute_object = compute_object
         # check outputs
-        assert isinstance(objective_index, int)
         for out in outputs:
             assert isinstance(out, Output)
-            assert isinstance(out.name, str)
-        self.objective_index = objective_index
         self.outputs = outputs
-        # internalize parameters
+        # check objective index
+        assert isinstance(objective_index, int)
+        self.objective_index = objective_index
+        # check to make sure that the compute object has all of the design variables attributes
+        for idv in initial_design_variables:
+            assert isinstance(idv, DesignVariable)
+            if not hasattr(self.compute_object, idv.name):
+                raise KeyError(
+                    "Name '%s' of the design variable does not match an attribute in the ComputeObject"
+                    % idv.name
+                )
+            # if the initial value of the design variable is not set then extract it
+            # from the compute object
+            if idv.value is None:
+                assert getattr(self.compute_object, idv.name) is not None, (
+                    "No initial value found for design variable '%s'" % idv.name
+                )
+                idv.extract_val(compute_object=self.compute_object)
+        self.initial_design_variables = initial_design_variables
+        # set parameters in the compute object to the initial design variables
         self.variables_object = self.initial_design_variables
         # do a sanity check to make sure the reconstructed desgin variables are the same
         for (original, reconstructed) in zip(
@@ -126,169 +62,144 @@ class Optimizer:
         ):
             try:
                 assert original.name == reconstructed.name
-                assert np.array_equal(original.val, reconstructed.val)
-                assert np.array_equal(original.lower, reconstructed.lower)
-                assert np.array_equal(original.upper, reconstructed.upper)
+                assert torch.all(original.value_tensor == reconstructed.value_tensor)
             except:
-                print("design variable internalization failed for %s." % original.name)
+                logger.error(
+                    "design variable internalization failed for %s." % original.name
+                )
                 raise
         # initialize an array to save the variable values from the last iteration so we
         # can check whether or not they have changed
         self._last_variables = None
 
     @property
-    def variables_object(self)->List[DesignVariable]:
+    def variables_object(self) -> List[DesignVariable]:
         design_variables = []
         for idv in self.initial_design_variables:
             # get variable value if present
             design_variables.append(
                 DesignVariable(
                     name=idv.name,
-                    val=getattr(self.obj_constr, idv.name),
+                    value=as_tensor(getattr(self.compute_object, idv.name)),
                     lower=idv.lower,
                     upper=idv.upper,
-                    finite_diff_step=idv.finite_diff_step,
                 )
             )
         return design_variables
 
     @variables_object.setter
-    def variables_object(self, design_variables):
+    def variables_object(self, design_variables: List[DesignVariable]) -> None:
+        """
+        Set the design variables to the specified values in the ComputeObject.
+        """
         for dv in design_variables:
             # make sure design variables are of the correct type
             assert isinstance(dv, DesignVariable)
-            setattr(self.obj_constr, dv.name, dv.val)
+            setattr(self.compute_object, dv.name, dv.value_tensor)
         # reset state since variable changed
         self.reset_state()
 
     @property
-    def variables_array(self):
+    def variables_array(self) -> Tensor:
         """
         returns the variables as a 1d array
         """
-        return np.concatenate([np.ravel(dv.val) for dv in self.variables_object])
+        return torch.cat([torch.ravel(dv.value_tensor) for dv in self.variables_object])
 
     @variables_array.setter
-    def variables_array(self, value):
+    def variables_array(self, value: Tensor):
         """
         setter for variables_array property
         """
-        if self._last_variables is None or np.any(
-            value != self._last_variables
-        ):  # if any value changed
+        if self._last_variables is None or torch.any(value != self._last_variables):
+            # if any value changed
             i_cur = 0  # current variable index
             for idv in self.initial_design_variables:
-                dv_size = np.size(idv.val)
+                dv_shape = idv.value_tensor.size()
+                dv_size = prod(dv_shape)
                 setattr(
-                    self.obj_constr,
+                    self.compute_object,
                     idv.name,
-                    np.reshape(value[i_cur : (i_cur + dv_size)], np.shape(idv.val)),
+                    torch.reshape(value[i_cur : (i_cur + dv_size)], dv_shape),
                 )
                 i_cur += dv_size  # update the position of the index
             assert i_cur == value.size, "sanity check: did not use all design variables"
             self.reset_state()
-            self._last_variables = value.copy()  # save parameters for next iter
+            # save parameters for next iteration
+            self._last_variables = value.detach().clone()
         else:
             pass  # nothing changed so pass
 
     @property
-    def finite_diff_step_array(self):
-        """
-        returns the finite diff step size for each variables as a 1d array
-        """
-        finite_diff_step = np.concatenate(
-            [  # create a big 1d array
-                np.ravel(
-                    [idv.finite_diff_step,] * np.size(idv.val)
-                    if np.size(idv.finite_diff_step) == 1
-                    else idv.finite_diff_step
-                )  # broadcast to correct size if nessessary
-                for idv in self.initial_design_variables  # loop through all design variables
-            ]
-        )
-        return finite_diff_step
-
-    @property
-    def variable_bounds_array(self):
+    def variable_bounds_array(self) -> Tuple[Tensor, Tensor]:
         """
         get bounds for all optimization variables
         """
-        lower, upper = [
-            np.concatenate(
-                [  # create a big 1d array
-                    np.ravel(
-                        [getattr(idv, key),] * np.size(idv.val)
-                        if np.size(getattr(idv, key)) == 1
-                        else getattr(idv, key)
-                    )  # broadcast to correct size if nessessary
-                    for idv in self.initial_design_variables  # loop through all design variables
-                ]
-            )
-            for key in ["lower", "upper"]
-        ]
+        lower = torch.cat(
+            [idv.lower_tensor.reshape(-1) for idv in self.initial_design_variables]
+        )
+        upper = torch.cat(
+            [idv.upper_tensor.reshape(-1) for idv in self.initial_design_variables]
+        )
         return lower, upper
 
     @property
-    def constraint_bounds_array(self):
+    def constraint_bounds_array(self) -> Tuple[Tensor, Tensor]:
         """
         get bounds for all constrained outputs
         """
-        lower, upper = [
-            np.concatenate(
-                [  # create a big 1d array
-                    np.ravel(
-                        [getattr(out, key),]
-                        * np.size(getattr(self.obj_constr, out.name))
-                        if np.size(getattr(out, key)) == 1
-                        else getattr(out, key)
-                    )  # broadcast to correct size if nessessary
-                    for out in self.outputs  # loop through all outputs
-                    if (
-                        np.isfinite(out.lower) or np.isfinite(out.upper)
-                    )  # filter to include only outputs that are constrained
-                ]
-            )
-            for key in ["lower", "upper"]
-        ]
-        return lower, upper
+        lower = torch.cat([out.lower_tensor.reshape(-1) for out in self.outputs])
+        upper = torch.cat([out.upper_tensor.reshape(-1) for out in self.outputs])
+        return lower[self.constrained_output_mask], upper[self.constrained_output_mask]
+
+    @cached_property
+    def constrained_output_mask(self) -> Tensor:
+        """
+        Get a boolean tensor indicating which outputs are constrained.
+        It is cached since this will never change throughout an optimization.
+        """
+        # get the lower and upper bounds for the ouputs
+        lower = torch.cat([out.lower_tensor.reshape(-1) for out in self.outputs])
+        upper = torch.cat([out.upper_tensor.reshape(-1) for out in self.outputs])
+        # determine which are constrained (has a finite lower and/or upper bound)
+        return torch.logical_or(torch.isfinite(lower), torch.isfinite(upper))
 
     def reset_state(self):
         """ resets outputs and internal state """
         # remove all output values
         for out in self.outputs:
-            out.val = None
+            out.value = None
 
-    def compute(self, to_plot=False, **kwargs):
+    def compute(self, to_plot=False, **kwargs) -> None:
         """
-        run objective and constraint functions
+        run compute to get all outputs (objective and constraints) for the current
+        design variable setting.
         """
         # check if computations completed
-        if self.outputs[self.objective_index].val is not None:
+        if self.outputs[self.objective_index].value is not None:
             # if the objective is already computed then don't need to recompute anything
             return
 
         # run the objective and constraint functions
-        self.obj_constr.compute(to_plot=to_plot, **kwargs)
+        self.compute_object.compute(to_plot=to_plot, **kwargs)
 
         # extract the outputs
         for out in self.outputs:
-            out.val = getattr(self.obj_constr, out.name)
+            out.extract_val(compute_object=self.compute_object)
 
-    def objective_fun(self, x):
+    def objective_fun(self, x) -> Tensor:
+        """ return the objective """
         self.variables_array = x
         self.compute()
-        return self.outputs[self.objective_index].val
+        return self.outputs[self.objective_index].value_tensor
 
-    def constraint_fun(self, x):
+    def constraint_fun(self, x) -> Tensor:
+        """ return the constraints """
         self.variables_array = x
         self.compute()
-        return np.concatenate(
-            [
-                np.ravel(out.val)
-                for out in self.outputs
-                if (np.isfinite(out.lower) or np.isfinite(out.upper))
-            ]
-        )  # return any constrained output
+        # return any constrained outputs
+        all_outputs = torch.cat([out.value_tensor.reshape(-1) for out in self.outputs])
+        return all_outputs[self.constrained_output_mask]
 
     def optimize(
         self, maxiter=1000, display_step=50, keep_feasible=False, **trust_constr_options
@@ -304,17 +215,17 @@ class Optimizer:
         self.display_step = display_step
         # compute the current iterate first. This is nessessary since we need to know the dimensions of all the outputs
         self.compute()
-        logger.info("Initial objective: %.3f." % self.outputs[self.objective_index].val)
+        logger.info(
+            "Initial objective: %.3f." % self.outputs[self.objective_index].value_tensor
+        )
         logger.info("Beginning optimization.")
 
         # setup constraints
-        finite_diff_step = self.finite_diff_step_array
         constraint_lb, constraint_ub = self.constraint_bounds_array
         constraints = NonlinearConstraint(
             fun=self.constraint_fun,
             lb=constraint_lb,
             ub=constraint_ub,
-            finite_diff_rel_step=finite_diff_step,
             keep_feasible=keep_feasible,
         )
 
@@ -322,18 +233,14 @@ class Optimizer:
         try:
             res = minimize(
                 fun=self.objective_fun,
-                x0=self.variables_array.copy(),
+                x0=self.variables_array.clone(),
                 bounds=[bound for bound in zip(*self.variable_bounds_array)],
                 method="trust-constr",
                 constraints=constraints,
-                options=dict(
-                    maxiter=maxiter,
-                    finite_diff_rel_step=finite_diff_step,
-                    **trust_constr_options
-                ),
+                options=dict(maxiter=maxiter, **trust_constr_options),
                 callback=(
                     (lambda xk, res: self.callback(xk, res))
-                    if np.isfinite(display_step)
+                    if display_step < maxiter
                     else None
                 ),
             )
