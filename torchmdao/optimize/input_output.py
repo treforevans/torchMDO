@@ -2,6 +2,7 @@ import torch
 import numpy
 from dataclasses import dataclass
 from typing import Union, Optional, List
+from functools import cached_property
 from ..utils import is_broadcastable
 from .model import ComputeObject
 
@@ -38,11 +39,12 @@ class InputOutput:
             raise RuntimeError("value has not yet been set.")
         return self.value
 
-    @property
+    @cached_property
     def lower_tensor(self) -> Tensor:
         """
         Return the bound, guaranteeing that it will be a tensor and broadcasting it
         to the size of value.
+        Cached since this won't change throughout optimization.
         """
         bound = torch.zeros_like(self.value_tensor)
         if self.lower is not None:
@@ -51,11 +53,12 @@ class InputOutput:
             bound[:] = -torch.inf
         return bound
 
-    @property
+    @cached_property
     def upper_tensor(self) -> Tensor:
         """
         Return the bound, guaranteeing that it will be a tensor and broadcasting it
         to the size of value.
+        Cached since this won't change throughout optimization.
         """
         bound = torch.zeros_like(self.value_tensor)
         if self.upper is not None:
@@ -63,6 +66,16 @@ class InputOutput:
         else:
             bound[:] = -torch.inf
         return bound
+
+    @cached_property
+    def shape(self) -> torch.Size:
+        """ get the shape of value """
+        return self.value_tensor.size()
+
+    @cached_property
+    def numel(self) -> int:
+        """ get the numel of value """
+        return self.value_tensor.numel()
 
     def stringify(self) -> str:
         """

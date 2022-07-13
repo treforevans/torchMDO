@@ -1,5 +1,4 @@
 import torch
-from numpy import prod
 from scipy.optimize import minimize, NonlinearConstraint
 from logging import getLogger
 from typing import Union, Optional, List, Tuple
@@ -115,15 +114,15 @@ class Optimizer:
             # if any value changed
             i_cur = 0  # current variable index
             for idv in self.initial_design_variables:
-                dv_shape = idv.value_tensor.size()
-                dv_size = prod(dv_shape)
                 setattr(
                     self.compute_object,
                     idv.name,
-                    torch.reshape(value[i_cur : (i_cur + dv_size)], dv_shape),
+                    torch.reshape(value[i_cur : (i_cur + idv.numel)], idv.shape),
                 )
-                i_cur += dv_size  # update the position of the index
-            assert i_cur == value.size, "sanity check: did not use all design variables"
+                i_cur += idv.numel  # update the position of the index
+            assert (
+                i_cur == value.numel()
+            ), "sanity check: did not use all design variables"
             self.reset_state()
             # save parameters for next iteration
             self._last_variables = value.detach().clone()
