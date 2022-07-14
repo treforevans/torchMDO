@@ -9,7 +9,7 @@ from pdb import set_trace
 
 def test_interp():
     """
-    Make sure C1 continuous interp agrees with scipy's linear interpolation.
+    Make sure C0 continuous interp agrees with scipy's linear interpolation.
     """
     # generate training data
     x = torch.linspace(0, 1, 40).reshape((-1, 1))*100

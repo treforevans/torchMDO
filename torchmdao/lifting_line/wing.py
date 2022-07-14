@@ -11,7 +11,7 @@ class LiftingLineWing:
         chords: Tensor,
         alpha_sections: Tensor,
         alpha_0s: Tensor,
-        AR: float,
+        AR: Tensor,
     ):
         """
         Inputs:

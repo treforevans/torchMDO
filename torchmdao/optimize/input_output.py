@@ -20,10 +20,16 @@ class InputOutput:
     def __post_init__(self,):
         # check the types and the bounds
         assert isinstance(self.name, str)
-        assert self.value is None or isinstance(self.value, Tensor)
+        if self.value is not None:
+            # ensure value is a tensor
+            self.value = as_tensor(self.value)
+        # ensure the types are none or Tensor
+        self.value = None if self.value is None else as_tensor(self.value)
+        self.lower = None if self.lower is None else as_tensor(self.lower)
+        self.upper = None if self.upper is None else as_tensor(self.upper)
+        # check the broadcasting of the bounds
         for bound in [self.lower, self.upper]:
             if bound is not None:
-                assert isinstance(bound, Tensor), "lower or upper bound is not a Tensor"
                 assert self.value is None or is_broadcastable(
                     self.value.shape, bound.shape
                 ), "lower or upper bound cannot be broadcast to shape of value"

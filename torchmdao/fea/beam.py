@@ -103,11 +103,11 @@ class BeamFEA(BaseFEA):
             uniform_force = torch.asarray(uniform_loads) * self.lengths / 2
             uniform_moment = uniform_force * self.lengths / 6.0
             # apply equal force to the end of each beam segment
-            f[:-1, 0] += uniform_force
-            f[1:, 0] += uniform_force
+            f[:-1, 0] = f[:-1, 0] + uniform_force
+            f[1:, 0] = f[1:, 0] + uniform_force
             # apply the appropriate moment to the end of each beam segment
-            f[:-1, 1] += uniform_moment
-            f[1:, 1] -= uniform_moment
+            f[:-1, 1] = f[:-1, 1] + uniform_moment
+            f[1:, 1] = f[1:, 1] - uniform_moment
 
         # apply the boundary conditions to f
         f_bc = self.dof_arr2vec(f)[self.free_dofs]
@@ -145,8 +145,9 @@ class BeamFEA(BaseFEA):
         Kglobal_lower_band = torch.zeros((4, self.N))
         for i, (l, EI) in enumerate(zip(self.lengths, self.EIs)):
             l2 = l ** 2
-            Kglobal_lower_band[:, (2 * i) : (2 * (i + 2))] += (
-                EI
+            Kglobal_lower_band[:, (2 * i) : (2 * (i + 2))] = (
+                Kglobal_lower_band[:, (2 * i) : (2 * (i + 2))]
+                + EI
                 * torch.Tensor(
                     [
                         [12.0, 4.0 * l2, 12.0, 4.0 * l2],

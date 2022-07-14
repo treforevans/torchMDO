@@ -17,6 +17,7 @@ class InterpND(gpytorch.models.ExactGP):
         assert x.ndim == y.ndim == 2
         assert x.shape[0] == y.shape[0]
         assert differentiability in [1, 2, 3]
+        self.n_inputs = x.shape[1]
         self.n_functions = y.shape[1]
         self.bounds_error = bounds_error
         # save the min and max values so we can make sure we don't extrapolate
@@ -50,7 +51,7 @@ class InterpND(gpytorch.models.ExactGP):
 
     def forward(self, x: Tensor):
         assert x.ndim == 2
-        assert x.shape[1] == 1
+        assert x.shape[1] == self.n_inputs
         x_scaled = self.scale_inputs(x)
         # make sure we're not out of bounds
         if any(x_scaled.max(dim=0)[0] > 1.0):
