@@ -27,3 +27,5 @@ _TODO: put a simple example here with a figure._
 
 - [`torch_interpolations`](https://github.com/sbarratt/torch_interpolations)
 - [`torch_cg`](https://github.com/sbarratt/torch_cg)
+- [`deq`](https://github.com/locuslab/deq) for differentiating through non-linear solvers
+- [`torchdiffeq`](https://github.com/rtqichen/torchdiffeq) for differentiating through ODE solvers
