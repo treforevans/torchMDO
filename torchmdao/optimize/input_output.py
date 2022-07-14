@@ -1,10 +1,10 @@
 import torch
 import numpy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Union, Optional, List
 from functools import cached_property
 from ..utils import is_broadcastable
-from .model import ComputeObject
+from ..model import ComputeObject
 
 Tensor = torch.Tensor
 as_tensor = torch.as_tensor
@@ -46,11 +46,10 @@ class InputOutput:
         to the size of value.
         Cached since this won't change throughout optimization.
         """
-        bound = torch.zeros_like(self.value_tensor)
         if self.lower is not None:
-            bound[:] = self.lower
+            bound = self.lower.expand(self.shape)
         else:
-            bound[:] = -torch.inf
+            bound = as_tensor(-torch.inf).expand(self.shape)
         return bound
 
     @cached_property
@@ -60,11 +59,10 @@ class InputOutput:
         to the size of value.
         Cached since this won't change throughout optimization.
         """
-        bound = torch.zeros_like(self.value_tensor)
         if self.upper is not None:
-            bound[:] = self.upper
+            bound = self.upper.expand(self.shape)
         else:
-            bound[:] = -torch.inf
+            bound = as_tensor(torch.inf).expand(self.shape)
         return bound
 
     @cached_property
@@ -76,6 +74,12 @@ class InputOutput:
     def numel(self) -> int:
         """ get the numel of value """
         return self.value_tensor.numel()
+
+    def replace(self, **changes):
+        """
+        Returns a shallow copy of itself with any changes made.
+        """
+        return replace(self, **changes)
 
     def stringify(self) -> str:
         """

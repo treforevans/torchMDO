@@ -1,11 +1,12 @@
 import torch
-from scipy.optimize import minimize, NonlinearConstraint
+from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult
 from logging import getLogger
 from typing import Union, Optional, List, Tuple
 from warnings import warn
+from pdb import set_trace
 from functools import cached_property
 from .input_output import DesignVariable, Output
-from .model import ComputeObject
+from ..model import ComputeObject
 
 logger = getLogger(__name__)
 Tensor = torch.Tensor
@@ -24,18 +25,23 @@ class Optimizer:
         Inputs:
             design_variables : list of DesignVariable objects
             outputs : list of Outputs objects
-            compute_object : ComputeObject what computes all outputs when `compute_object.compute()` is called
+            compute_object : ComputeObject what computes all outputs 
+                when `compute_object.compute()` is called
             objective_index : index of objective in outputs
         """
         # check compute_object
         assert isinstance(compute_object, ComputeObject)
         self.compute_object = compute_object
         # check outputs
+        assert len(outputs) >= 1
         for out in outputs:
             assert isinstance(out, Output)
         self.outputs = outputs
         # check objective index
         assert isinstance(objective_index, int)
+        assert objective_index in torch.arange(
+            len(self.outputs)
+        ), "objective_index not in range."
         self.objective_index = objective_index
         # check to make sure that the compute object has all of the design variables attributes
         for idv in initial_design_variables:
@@ -67,23 +73,19 @@ class Optimizer:
                     "design variable internalization failed for %s." % original.name
                 )
                 raise
-        # initialize an array to save the variable values from the last iteration so we
+        # initialize an tensor to save the variable values from the last iteration so we
         # can check whether or not they have changed
         self._last_variables = None
 
     @property
     def variables_object(self) -> List[DesignVariable]:
-        design_variables = []
-        for idv in self.initial_design_variables:
-            # get variable value if present
-            design_variables.append(
-                DesignVariable(
-                    name=idv.name,
-                    value=as_tensor(getattr(self.compute_object, idv.name)),
-                    lower=idv.lower,
-                    upper=idv.upper,
-                )
-            )
+        """
+        create a copy of the initial design variables with a change made to the value
+        """
+        design_variables = [
+            idv.replace(value=as_tensor(getattr(self.compute_object, idv.name)))
+            for idv in self.initial_design_variables
+        ]
         return design_variables
 
     @variables_object.setter
@@ -99,19 +101,19 @@ class Optimizer:
         self.reset_state()
 
     @property
-    def variables_array(self) -> Tensor:
+    def variables_tensor(self) -> Tensor:
         """
-        returns the variables as a 1d array
+        returns the variables as a 1d tensor
         """
         return torch.cat([torch.ravel(dv.value_tensor) for dv in self.variables_object])
 
-    @variables_array.setter
-    def variables_array(self, value: Tensor):
+    @variables_tensor.setter
+    def variables_tensor(self, value: Tensor):
         """
-        setter for variables_array property
+        setter for variables_tensor property
         """
         if self._last_variables is None or torch.any(value != self._last_variables):
-            # if any value changed
+            # if any value changed then update the compute object with the new variables
             i_cur = 0  # current variable index
             for idv in self.initial_design_variables:
                 setattr(
@@ -123,6 +125,7 @@ class Optimizer:
             assert (
                 i_cur == value.numel()
             ), "sanity check: did not use all design variables"
+            # reset the state since the variables have changed
             self.reset_state()
             # save parameters for next iteration
             self._last_variables = value.detach().clone()
@@ -130,7 +133,7 @@ class Optimizer:
             pass  # nothing changed so pass
 
     @property
-    def variable_bounds_array(self) -> Tuple[Tensor, Tensor]:
+    def variable_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
         """
         get bounds for all optimization variables
         """
@@ -143,7 +146,7 @@ class Optimizer:
         return lower, upper
 
     @property
-    def constraint_bounds_array(self) -> Tuple[Tensor, Tensor]:
+    def constraint_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
         """
         get bounds for all constrained outputs
         """
@@ -163,24 +166,28 @@ class Optimizer:
         # determine which are constrained (has a finite lower and/or upper bound)
         return torch.logical_or(torch.isfinite(lower), torch.isfinite(upper))
 
+    @cached_property
+    def num_constraints(self) -> int:
+        return int(torch.count_nonzero(self.constrained_output_mask))
+
     def reset_state(self):
         """ resets outputs and internal state """
         # remove all output values
         for out in self.outputs:
             out.value = None
 
-    def compute(self, to_plot=False, **kwargs) -> None:
+    def compute(self, **kwargs) -> None:
         """
         run compute to get all outputs (objective and constraints) for the current
         design variable setting.
         """
-        # check if computations completed
+        # check if the computation has already been completed completed
         if self.outputs[self.objective_index].value is not None:
             # if the objective is already computed then don't need to recompute anything
             return
 
         # run the objective and constraint functions
-        self.compute_object.compute(to_plot=to_plot, **kwargs)
+        self.compute_object.compute(**kwargs)
 
         # extract the outputs
         for out in self.outputs:
@@ -188,21 +195,26 @@ class Optimizer:
 
     def objective_fun(self, x) -> Tensor:
         """ return the objective """
-        self.variables_array = x
+        x = as_tensor(x)
+        self.variables_tensor = x
         self.compute()
-        return self.outputs[self.objective_index].value_tensor
+        objective = self.outputs[self.objective_index].value_tensor
+        assert objective.numel() == 1, "objective must be a scalar"
+        return objective.reshape(())
 
     def constraint_fun(self, x) -> Tensor:
         """ return the constraints """
-        self.variables_array = x
+        x = as_tensor(x)
+        self.variables_tensor = x
         self.compute()
-        # return any constrained outputs
+        # extract all the outputs as a concatenated 1d vector
         all_outputs = torch.cat([out.value_tensor.reshape(-1) for out in self.outputs])
+        # return any constrained outputs
         return all_outputs[self.constrained_output_mask]
 
     def optimize(
         self, maxiter=1000, display_step=50, keep_feasible=False, **trust_constr_options
-    ):
+    ) -> Optional[OptimizeResult]:
         """
         optimizing the objective, subject to constraints
 
@@ -220,20 +232,24 @@ class Optimizer:
         logger.info("Beginning optimization.")
 
         # setup constraints
-        constraint_lb, constraint_ub = self.constraint_bounds_array
-        constraints = NonlinearConstraint(
-            fun=self.constraint_fun,
-            lb=constraint_lb,
-            ub=constraint_ub,
-            keep_feasible=keep_feasible,
-        )
+        if self.num_constraints > 0:
+            constraint_lb, constraint_ub = self.constraint_bounds_tensor
+            constraints = NonlinearConstraint(
+                fun=self.constraint_fun,
+                lb=constraint_lb,
+                ub=constraint_ub,
+                keep_feasible=keep_feasible,
+            )
+        else:
+            # there are no constraints
+            constraints = None
 
         # run the optimization
         try:
             res = minimize(
                 fun=self.objective_fun,
-                x0=self.variables_array.clone(),
-                bounds=[bound for bound in zip(*self.variable_bounds_array)],
+                x0=self.variables_tensor.clone(),
+                bounds=[bound for bound in zip(*self.variable_bounds_tensor)],
                 method="trust-constr",
                 constraints=constraints,
                 options=dict(maxiter=maxiter, **trust_constr_options),
@@ -245,6 +261,7 @@ class Optimizer:
             )
         except (KeyboardInterrupt):
             logger.info("Keyboard interrupt raised. Cleaning up...")
+            return
         except:
             logger.error("Error during optimization!")
             raise
@@ -257,7 +274,7 @@ class Optimizer:
             logger.info("Execution time: %.1fs" % res["execution_time"])
             print(res["message"])
             # set the parameters internally
-            self.variables_array = res["x"]
+            self.variables_tensor = as_tensor(res["x"])
             return res
 
     def plot(self, **kwargs):
