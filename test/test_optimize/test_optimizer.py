@@ -1,11 +1,11 @@
 import torch
 import torchmdao
-from torchmdao.examples.synthetic_functions import Rosenbrock
 from numpy.testing import (
     assert_almost_equal,
     assert_array_almost_equal,
     assert_array_less,
 )
+from .synthetic_functions import Rosenbrock
 
 Tensor = torch.Tensor
 

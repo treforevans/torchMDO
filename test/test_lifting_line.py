@@ -12,9 +12,12 @@ class TestLiftingLine:
         # AR = 10; c = b/AR
         c = 0.756
         AR = b ** 2 / (b * c)
-        spanwise_loc = torch.linspace(0, b / 2, steps=101)[
-            1:
-        ]  # don't include the root location
+        # establish a computational grid (using the lifting line change of variables)
+        spanwise_loc = (
+            -b / 2 * torch.cos(torch.linspace(torch.pi / 2, torch.pi, steps=101))
+        )
+        spanwise_loc = spanwise_loc[1:]  # don't include the root location
+        assert torch.abs(spanwise_loc[-1] - b / 2) < 1e-6
         chords = torch.zeros_like(spanwise_loc) + c
         alpha_sections = torch.zeros_like(spanwise_loc) + 0.5 * torch.pi / 180
         alpha_0s = torch.zeros_like(spanwise_loc) - 0.3 * torch.pi / 180
@@ -22,7 +25,7 @@ class TestLiftingLine:
         print("aspect ratio:", AR)
 
         # Compute lift distribution for given CL
-        Cl_target = 1.0
+        Cl_target = torch.ones(())
         wing.solve(Cl=Cl_target)
         Cl_section = wing.section_lift_coeff()
         if to_plot:

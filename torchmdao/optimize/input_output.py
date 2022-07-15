@@ -33,6 +33,11 @@ class InputOutput:
                 assert self.value is None or is_broadcastable(
                     self.value.shape, bound.shape
                 ), "lower or upper bound cannot be broadcast to shape of value"
+        # make sure the bounds are not infeasible
+        if self.lower is not None and self.upper is not None:
+            assert torch.all(
+                self.lower <= self.upper
+            ), "Lower bound is greater than upper bound."
 
     def extract_val(self, compute_object: ComputeObject):
         """extract value from a compute object"""
@@ -81,6 +86,14 @@ class InputOutput:
         """ get the numel of value """
         return self.value_tensor.numel()
 
+    @cached_property
+    def is_constrained(self) -> bool:
+        """ Returns true if there is some constraint present. """
+        for bound in [self.lower, self.upper]:
+            if bound is not None and torch.any(torch.isfinite(bound)):
+                return True
+        return False
+
     def replace(self, **changes):
         """
         Returns a shallow copy of itself with any changes made.
@@ -123,7 +136,32 @@ class InputOutput:
 
 @dataclass
 class Output(InputOutput):
-    """ Specifies the output of a model which may be an objective or constraint."""
+    """ 
+    Specifies the output of a `ComputeObject` used for optimization which may be
+    an objective or constraint.
+    
+    Inputs:
+        name : (str) the name of an attribute in a `ComputeObject` that will be 
+            used as an output (an objective or constraint) for optimization.
+        name : (str) name of the output that matches the name of the attribute in
+            the `ComputeObject` that will be used for optimization.
+        value : (optional, Tensor) unused upon initialization, this attribute
+            will be updated with the value of the output.
+        lower : (optional, Tensor) if specified, this output will be constrained
+            as an inequality constraint such that the output value must be 
+            greater than or equal to `lower`.
+            If `upper` is also specified and `lower == upper` then this will 
+            be an equality constraint.
+        upper : (optional, Tensor) if specified, this output will be constrained
+            as an inequality constraint such that the output value must be 
+            less than or equal to `upper`.
+            If `lower` is also specified and `lower == upper` then this will 
+            be an equality constraint.
+        linear : (optional, bool) if True then the output will be treated as
+            linear in the `DesignVariables` for the optimization problem.
+    """
+
+    linear: bool = False  # set true if this output is linear in the input
 
     pass
 
@@ -131,7 +169,20 @@ class Output(InputOutput):
 @dataclass
 class DesignVariable(InputOutput):
     """
-    Stores a design variable, along with input bounds for that variable.
+    Specifies a design variable, along with input bounds for that variable, if any.
+    
+    Inputs:
+        name : (str) the name of an attribute in a `ComputeObject` that will 
+            be used as a design variable for optimization.
+        value : (optional, Tensor) if specified, this value will be used as an
+            initial value of this design variable for optimization.
+            If not specified, then the value of the attribute stored in 
+            the `ComputeObject` with the same `name` will be used as the 
+            initial value of this design variable for optimization.
+        lower : (optional, Tensor) if specified, this design variable will
+            have a lower bound given by this value.
+        upper : (optional, Tensor) if specified, this design variable will
+            have an upper bound given by this value.
     """
 
     pass

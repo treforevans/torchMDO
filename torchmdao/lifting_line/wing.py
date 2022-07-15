@@ -60,6 +60,16 @@ class LiftingLineWing:
         self.ns = torch.arange(start=3, end=self.m * 2 + 1, step=2)
         ns = self.ns.reshape((1, -1))  # reshape for broadcasting
         thetas = self.spanwise_thetas.reshape((-1, 1))  # reshape for broadcasting
+        # self.A_sys = torch.hstack( # DEBUG
+        #     [
+        #         -torch.ones((self.m, 1)),  # contribution of aircraft AoA
+        #         torch.sin(ns * thetas)
+        #         * (
+        #             2.0 * self.span / (torch.pi * self.chords.reshape((-1, 1)))
+        #             + ns / torch.sin(thetas)
+        #         ),
+        #     ]
+        # )
         self.A_sys = torch.zeros((self.m,) * 2)
         self.A_sys[:, 0] = -1.0  # contribution of aircraft AoA
         self.A_sys[:, 1:] = torch.sin(ns * thetas) * (
@@ -68,7 +78,7 @@ class LiftingLineWing:
         )
         self.A_sys_lu = torch.lu(self.A_sys)
 
-    def solve(self, Cl: float) -> None:
+    def solve(self, Cl: Tensor) -> None:
         """
         solve lifting line equations given a target aircraft Cl
         """
@@ -87,8 +97,8 @@ class LiftingLineWing:
         ).reshape((-1, 1))
         # solve the system
         x = torch.lu_solve(b_sys, *self.A_sys_lu)
-        self.alpha_aircraft = torch.squeeze(x[0])
-        self.Ans = torch.squeeze(x[1:])  # coefficients corresponding to ns
+        self.alpha_aircraft = x[0].reshape(())
+        self.Ans = torch.squeeze(x[1:], dim=1)  # coefficients corresponding to ns
 
     def induced_drag_coeff(self) -> Tensor:
         """ compute the induced drag coefficient """

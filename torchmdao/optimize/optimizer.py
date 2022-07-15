@@ -1,6 +1,12 @@
 import torch
 from numpy import ndarray
-from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, check_grad
+from scipy.optimize import (
+    minimize,
+    NonlinearConstraint,
+    OptimizeResult,
+    check_grad,
+)
+from scipy.sparse import csr_matrix
 from logging import getLogger
 from typing import Union, Optional, List, Tuple, cast
 from warnings import warn
@@ -21,6 +27,7 @@ class Optimizer:
         outputs: List[Output],
         compute_object: ComputeObject,
         objective_index: int = 0,
+        vectorize_constraint_jac: bool = False,
     ):
         """
         Inputs:
@@ -28,8 +35,13 @@ class Optimizer:
             outputs : list of Outputs objects
             compute_object : ComputeObject what computes all outputs 
                 when `compute_object.compute()` is called
-            objective_index : index of objective in outputs
+            objective_index : index of objective in outputs, i.e. the objective that
+                will be minimized is `outputs[objective_index]`
+            vectorize_constraint_jac : vectorize the computation of the constraint 
+                jacobian which may help a lot when many constraints are present. Note
+                however that this is an experimental feature.
         """
+        self.vectorize_constraint_jac = bool(vectorize_constraint_jac)
         # check compute_object
         assert isinstance(compute_object, ComputeObject)
         self.compute_object = compute_object
@@ -177,7 +189,13 @@ class Optimizer:
 
     @cached_property
     def num_constraints(self) -> int:
+        """ Returns the number of constraints present. """
         return int(torch.count_nonzero(self.constrained_output_mask))
+
+    @cached_property
+    def constraints_are_all_linear(self) -> bool:
+        """ Returns true if all the constraints are linear. """
+        return all(out.linear for out in self.outputs if out.is_constrained)
 
     def reset_state(self):
         """ resets outputs and internal state """
@@ -211,7 +229,13 @@ class Optimizer:
         self.variables_tensor = x
         self.compute()
         objective = self.outputs[self.objective_index].value_tensor
+        # run a couple of quick checks
         assert objective.numel() == 1, "objective must be a scalar"
+        assert torch.all(
+            torch.isfinite(objective)
+        ), "Non-finite value encountered in the objective = %s" % str(
+            objective.detach()
+        )
         # return the objective and detach it so we can convert it to numpy
         return objective.reshape(()).detach()
 
@@ -235,6 +259,10 @@ class Optimizer:
         assert (
             objective_grad is not None
         ), "objective gradient failed, something wrong with comptuational graph."
+        assert torch.all(torch.isfinite(objective_grad)), (
+            "Non-finite value encountered in the objective gradient = %s"
+            % str(objective_grad.detach())
+        )
         return objective_grad
 
     def constraint_fun(
@@ -255,6 +283,11 @@ class Optimizer:
         all_outputs = torch.cat([out.value_tensor.reshape(-1) for out in self.outputs])
         # extract any constrained outputs
         constraints = all_outputs[self.constrained_output_mask]
+        # run a quick check
+        assert torch.all(torch.isfinite(constraints)), (
+            "Non-finite value encountered in the constraints = %s"
+            % str(constraints.detach())
+        )
         # return, determining whether to detach or not based on whether the jacobian
         # is being computed
         return constraints if jacobian_computation else constraints.detach()
@@ -277,14 +310,19 @@ class Optimizer:
         # - objective_fun - this re-uses the previous computation from objective_grad
         # - constraint_jac
         # - constraint_fun - this re-uses the previous computation from constraint_jac
-        posterior_mean_jac = torch.autograd.functional.jacobian(
+        constraint_jac = torch.autograd.functional.jacobian(
             func=lambda xx: self.constraint_fun(x=xx, jacobian_computation=True),
             inputs=x,
             create_graph=False,
             strict=False,
-            vectorize=True,  # NOTE: this is experimental but may help a lot when many outputs
+            vectorize=self.vectorize_constraint_jac,
         )
-        return posterior_mean_jac
+        # run a quick check
+        assert torch.all(torch.isfinite(constraint_jac)), (
+            "Non-finite value encountered in the constraint jacobian:\n%s"
+            % str(constraint_jac.detach())
+        )
+        return constraint_jac
 
     def optimize(
         self, maxiter=1000, display_step=50, keep_feasible=False, **trust_constr_options
@@ -304,6 +342,7 @@ class Optimizer:
             "Initial objective: %.3f." % self.outputs[self.objective_index].value_tensor
         )
         logger.info("Beginning optimization.")
+        x0 = self.variables_tensor.detach()
 
         # setup constraints
         if self.num_constraints > 0:
@@ -314,6 +353,11 @@ class Optimizer:
                 lb=constraint_lb,
                 ub=constraint_ub,
                 keep_feasible=keep_feasible,
+                **(  # specify a Hessian of zero if all the constraints are linear
+                    dict(hess=lambda x, v: csr_matrix((x0.numel(),) * 2))
+                    if self.constraints_are_all_linear
+                    else {}
+                )
             )
         else:
             # there are no constraints
@@ -324,7 +368,10 @@ class Optimizer:
             res = minimize(
                 fun=self.objective_fun,
                 jac=self.objective_grad,
-                x0=self.variables_tensor.detach(),
+                hess=csr_matrix((x0.numel(),) * 2)
+                if self.outputs[self.objective_index].linear
+                else None,
+                x0=x0,
                 bounds=[bound for bound in zip(*self.variable_bounds_tensor)],
                 method="trust-constr",
                 constraints=constraints,
