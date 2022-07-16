@@ -14,7 +14,7 @@ class LiftingLineWing:
         AR: Tensor,
     ):
         """
-        Inputs:
+        Args:
             spanwise_loc : shape (m,) spanwise locations of the m wing segments. The root is 
                 considered to be zero and the node is the half-wing span.
                 We assume symmetrical loading so this should just be points 

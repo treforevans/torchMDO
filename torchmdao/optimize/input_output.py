@@ -40,7 +40,12 @@ class InputOutput:
             ), "Lower bound is greater than upper bound."
 
     def extract_val(self, compute_object: ComputeObject):
-        """extract value from a compute object"""
+        """
+        extract value from a compute object
+
+        Args:
+            compute_object: object to extract value from.
+        """
         self.value = as_tensor(getattr(compute_object, self.name))
 
     @property
@@ -140,7 +145,7 @@ class Output(InputOutput):
     Specifies the output of a `ComputeObject` used for optimization which may be
     an objective or constraint.
     
-    Inputs:
+    Args:
         name : (str) the name of an attribute in a `ComputeObject` that will be 
             used as an output (an objective or constraint) for optimization.
         name : (str) name of the output that matches the name of the attribute in
@@ -171,7 +176,7 @@ class DesignVariable(InputOutput):
     """
     Specifies a design variable, along with input bounds for that variable, if any.
     
-    Inputs:
+    Args:
         name : (str) the name of an attribute in a `ComputeObject` that will 
             be used as a design variable for optimization.
         value : (optional, Tensor) if specified, this value will be used as an

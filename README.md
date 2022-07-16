@@ -1,6 +1,9 @@
 # torchMDAO
-Library of optimizers and tools to perform multidiciplinary design optimization in PyTorch with 
-analytical gradients.
+Multidisciplinary design optimization made fast with PyTorch and modern automatic differentiation.
+
+At its heart, torchMDAO is a library of optimizers and tools that allow you to build out large-scale 
+model to assess a design in PyTorch (with its Numpy-like syntax) and to optimize the design extremely quickly by taking
+advantage of the automatic differentiation capabilities provided by PyTorch.
 
 - [torchMDAO](#torchmdao)
   - [Installation](#installation)
@@ -27,7 +30,8 @@ pytest
 ## Usage
 
 _TODO: put a simple example here to show the basic usage of the package._
-_Maybe create a 2D constrained optimization problem with a Rosenbrock objective and a quadratic constraint._
+_Maybe create a 2D constrained optimization problem with a_
+_Rosenbrock objective (such as [this](https://bit.ly/3AVCIUY))._
 
 ## Examples
 

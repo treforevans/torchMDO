@@ -30,7 +30,9 @@ class Optimizer:
         vectorize_constraint_jac: bool = False,
     ):
         """
-        Inputs:
+        Object used to perfrom non-linear constrained optimization.
+
+        Args:
             design_variables : list of DesignVariable objects
             outputs : list of Outputs objects
             compute_object : ComputeObject what computes all outputs 
@@ -330,7 +332,7 @@ class Optimizer:
         """
         optimizing the objective, subject to constraints
 
-        Inputs:
+        Args:
             max_iters : int
                 maximum number of optimization iterations
             **trust_constr_options : from https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html

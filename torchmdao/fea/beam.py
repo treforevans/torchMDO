@@ -18,7 +18,7 @@ class BeamFEA(BaseFEA):
         """
         Given structure specifications, builds and factorizes a stiffness matrix.
 
-        Inputs:
+        Args:
             lengths : (n,) lengths of each beam segment
             EIs: (n,) EIs of each beam segment
             fixed_rotation: (n+1,) boolean tensor whether the rotation of each node is fixed.
