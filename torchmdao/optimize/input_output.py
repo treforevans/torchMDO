@@ -146,23 +146,21 @@ class Output(InputOutput):
     an objective or constraint.
     
     Args:
-        name : (str) the name of an attribute in a `ComputeObject` that will be 
+        name: the name of an attribute in a `ComputeObject` that will be 
             used as an output (an objective or constraint) for optimization.
-        name : (str) name of the output that matches the name of the attribute in
-            the `ComputeObject` that will be used for optimization.
-        value : (optional, Tensor) unused upon initialization, this attribute
+        value: unused upon initialization, this attribute
             will be updated with the value of the output.
-        lower : (optional, Tensor) if specified, this output will be constrained
+        lower: if specified, this output will be constrained
             as an inequality constraint such that the output value must be 
             greater than or equal to `lower`.
             If `upper` is also specified and `lower == upper` then this will 
             be an equality constraint.
-        upper : (optional, Tensor) if specified, this output will be constrained
+        upper: if specified, this output will be constrained
             as an inequality constraint such that the output value must be 
             less than or equal to `upper`.
             If `lower` is also specified and `lower == upper` then this will 
             be an equality constraint.
-        linear : (optional, bool) if True then the output will be treated as
+        linear: if True then the output will be treated as
             linear in the `DesignVariables` for the optimization problem.
     """
 
@@ -177,16 +175,16 @@ class DesignVariable(InputOutput):
     Specifies a design variable, along with input bounds for that variable, if any.
     
     Args:
-        name : (str) the name of an attribute in a `ComputeObject` that will 
+        name: the name of an attribute in a `ComputeObject` that will 
             be used as a design variable for optimization.
-        value : (optional, Tensor) if specified, this value will be used as an
+        value: if specified, this value will be used as an
             initial value of this design variable for optimization.
             If not specified, then the value of the attribute stored in 
             the `ComputeObject` with the same `name` will be used as the 
             initial value of this design variable for optimization.
-        lower : (optional, Tensor) if specified, this design variable will
+        lower: if specified, this design variable will
             have a lower bound given by this value.
-        upper : (optional, Tensor) if specified, this design variable will
+        upper: if specified, this design variable will
             have an upper bound given by this value.
     """
 

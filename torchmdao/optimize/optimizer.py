@@ -327,14 +327,17 @@ class Optimizer:
         return constraint_jac
 
     def optimize(
-        self, maxiter=1000, display_step=50, keep_feasible=False, **trust_constr_options
+        self,
+        maxiter: int = 1000,
+        display_step: int = 50,
+        keep_feasible: bool = False,
+        **trust_constr_options
     ) -> Optional[OptimizeResult]:
         """
-        optimizing the objective, subject to constraints
+        Optimize the objective, subject to constraints
 
         Args:
-            max_iters : int
-                maximum number of optimization iterations
+            maxiter: maximum number of optimization iterations
             **trust_constr_options : from https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html
         """
         self.display_step = display_step

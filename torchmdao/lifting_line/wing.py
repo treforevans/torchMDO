@@ -114,10 +114,13 @@ class LiftingLineWing:
     def alpha_induced_fun(self, spanwise_loc: Tensor) -> Tensor:
         """
         Induced AoA at a given spanwise locations.
-        Effective angle of attack:
-            `alpha_effective = alpha_section + alpha_aircraft - alpha_induced`
-        Local Section Lift (assuming thin airfoil theory):
-            `cl = 2.*torch.pi*(alpha_effective - alpha_0)`
+
+        Notes:
+            To compute effective angle of attack and local section 
+            lift (assuming thin airfoil theory):
+
+            >>> alpha_effective = alpha_section + alpha_aircraft - alpha_induced
+            >>> cl = 2.*torch.pi*(alpha_effective - alpha_0)
         """
         assert torch.all(spanwise_loc >= 0) and torch.all(spanwise_loc <= self.span / 2)
         thetas = torch.arccos(-spanwise_loc * 2.0 / self.span).reshape((1, -1))

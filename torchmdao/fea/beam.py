@@ -85,11 +85,15 @@ class BeamFEA(BaseFEA):
 
     def get_displacements(
         self, uniform_loads: Optional[Tensor] = None, f: Optional[Tensor] = None
-    ):
+    ) -> Tensor:
         """
         Compute the displacements of the beam.
-            uniform_loads : (n,) uniform loads on each beam segment. Units should be in N/m.
-            f : (n+1, 2) force vector to use at the nodes. Note that other forces will be added to this.
+
+        Args:
+            uniform_loads : shape `(n,)` uniform loads on each beam segment. 
+                Units should be in N/m.
+            f : shape `(n+1, 2)` force vector to use at the nodes. Note that 
+                other forces will be added to this.
         """
         if f is not None:
             assert f.size() == (self.n_nodes, self.n_dof)

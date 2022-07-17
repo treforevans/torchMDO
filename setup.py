@@ -10,10 +10,6 @@ def read(rel_path):
 
 
 def get_version(rel_path):
-    """
-    get the version of the package.
-    From: https://packaging.python.org/guides/single-sourcing-package-version/
-    """
     for line in read(rel_path).splitlines():
         if line.startswith("__version__"):
             delim = '"' if '"' in line else "'"
@@ -22,15 +18,20 @@ def get_version(rel_path):
         raise RuntimeError("Unable to find version string.")
 
 
-VERSION_PATH = os.path.join("torchmdao", "__init__.py")
-
 setup(
     name="torchmdao",
-    version=get_version(VERSION_PATH),
+    version=get_version(os.path.join("torchmdao", "__init__.py")),
     description="Multidisciplinary design optimization tools in PyTorch.",
     author="Trefor Evans",
     author_email="trefor@infera.ai",
     packages=["torchmdao"],
     zip_safe=True,
-    install_requires=["numpy", "scipy", "matplotlib", "pytest", "gpytorch", "torch",],
+    install_requires=[
+        "numpy~=1.23.0",
+        "scipy",
+        "matplotlib",
+        "pytest",
+        "gpytorch~=1.7.0",
+        "torch~=1.12.0",
+    ],
 )

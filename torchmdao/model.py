@@ -6,6 +6,11 @@ as_tensor = torch.as_tensor
 
 
 class ComputeObject(ABC):
+    """
+    Base class that must be inherited to construct a compute object for use in
+    optimization.
+    """
+
     @abstractmethod
     def compute(self) -> None:
         """
