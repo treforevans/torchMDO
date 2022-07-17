@@ -1,9 +1,9 @@
 
-torchmdao.model
+torchmdo.model
 ==========================
 
-.. automodule:: torchmdao.model
-.. currentmodule:: torchmdao.model
+.. automodule:: torchmdo.model
+.. currentmodule:: torchmdo.model
 
 Compute Object
 ---------------------------------------

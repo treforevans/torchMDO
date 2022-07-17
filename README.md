@@ -1,11 +1,11 @@
-# torchMDAO
+# torchMDO
 Multidisciplinary design optimization made fast with PyTorch and modern automatic differentiation.
 
-At its heart, torchMDAO is a library of optimizers and tools that allow you to build out large-scale 
+At its heart, torchmdo is a library of optimizers and tools that allow you to build out large-scale 
 model to assess a design in PyTorch (with its Numpy-like syntax) and to optimize the design extremely quickly by taking
 advantage of the automatic differentiation capabilities provided by PyTorch.
 
-- [torchMDAO](#torchmdao)
+- [torchMDO](#torchmdo)
   - [Installation](#installation)
   - [Usage](#usage)
   - [Examples](#examples)

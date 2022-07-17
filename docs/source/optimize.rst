@@ -1,9 +1,9 @@
 
-torchmdao.optimize
+torchmdo.optimize
 ==========================
 
-.. automodule:: torchmdao.optimize
-.. currentmodule:: torchmdao.optimize
+.. automodule:: torchmdo.optimize
+.. currentmodule:: torchmdo.optimize
 
 Design Variables
 ---------------------------------------

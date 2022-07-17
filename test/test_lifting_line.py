@@ -1,7 +1,7 @@
 import torch
 from numpy.testing import assert_array_almost_equal, assert_almost_equal
 import matplotlib.pyplot as plt
-from torchmdao.lifting_line.wing import LiftingLineWing
+from torchmdo.lifting_line.wing import LiftingLineWing
 from pdb import set_trace
 
 

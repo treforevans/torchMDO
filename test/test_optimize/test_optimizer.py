@@ -1,5 +1,5 @@
 import torch
-import torchmdao
+import torchmdo
 from numpy.testing import (
     assert_almost_equal,
     assert_array_almost_equal,
@@ -10,7 +10,7 @@ from .synthetic_functions import Rosenbrock
 Tensor = torch.Tensor
 
 
-class RosenbrockModel(torchmdao.ComputeObject):
+class RosenbrockModel(torchmdo.ComputeObject):
     def __init__(self, x: Tensor):
         self.x = x
         self.objective_function = Rosenbrock(dim=self.x.numel())
@@ -28,10 +28,10 @@ class TestOptimizer:
         """
         model = RosenbrockModel(x=torch.zeros(2))
         design_variables = [
-            torchmdao.DesignVariable(name="x"),
+            torchmdo.DesignVariable(name="x"),
         ]
         outputs = [
-            torchmdao.Output(
+            torchmdo.Output(
                 name="objective_value",
                 lower=torch.as_tensor(Rosenbrock.optimal_value)
                 if constrained
@@ -39,7 +39,7 @@ class TestOptimizer:
                 upper=1e3 * torch.ones(()) if constrained else None,
             )
         ]
-        optimizer = torchmdao.Optimizer(
+        optimizer = torchmdo.Optimizer(
             initial_design_variables=design_variables,
             outputs=outputs,
             compute_object=model,

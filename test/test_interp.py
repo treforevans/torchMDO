@@ -1,4 +1,4 @@
-import torchmdao.interp as interp
+import torchmdo.interp as interp
 import math
 import torch
 import gpytorch

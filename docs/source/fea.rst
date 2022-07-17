@@ -1,9 +1,9 @@
 
-torchmdao.fea
+torchmdo.fea
 ==========================
 
-.. automodule:: torchmdao.fea
-.. currentmodule:: torchmdao.fea
+.. automodule:: torchmdo.fea
+.. currentmodule:: torchmdo.fea
 
 Beam FEA model
 ---------------------------------------

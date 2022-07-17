@@ -1,9 +1,9 @@
 
-torchmdao.lifting_line
+torchmdo.lifting_line
 ==========================
 
-.. automodule:: torchmdao.lifting_line
-.. currentmodule:: torchmdao.lifting_line
+.. automodule:: torchmdo.lifting_line
+.. currentmodule:: torchmdo.lifting_line
 
 Lifting-line model of an aircraft wing
 ---------------------------------------

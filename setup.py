@@ -19,12 +19,12 @@ def get_version(rel_path):
 
 
 setup(
-    name="torchmdao",
-    version=get_version(os.path.join("torchmdao", "__init__.py")),
+    name="torchmdo",
+    version=get_version(os.path.join("torchmdo", "__init__.py")),
     description="Multidisciplinary design optimization tools in PyTorch.",
     author="Trefor Evans",
     author_email="trefor@infera.ai",
-    packages=["torchmdao"],
+    packages=["torchmdo"],
     zip_safe=True,
     install_requires=[
         "numpy~=1.23.0",

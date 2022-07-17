@@ -13,7 +13,7 @@ import os
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-repo_root_directory = os.path.abspath(os.path.join("..", "..", "torchmdao"))
+repo_root_directory = os.path.abspath(os.path.join("..", "..", "torchmdo"))
 sys.path.insert(0, repo_root_directory)
 
 # define functions to help read the package version
@@ -35,7 +35,7 @@ def get_version(rel_path):
 
 # -- Project information -----------------------------------------------------
 
-project = "torchMDAO"
+project = "torchMDO"
 copyright = "2022, Trefor Evans"
 author = "Trefor Evans"
 
