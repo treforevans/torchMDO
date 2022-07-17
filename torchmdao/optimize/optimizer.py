@@ -21,6 +21,23 @@ as_tensor = torch.as_tensor
 
 
 class Optimizer:
+    """
+    Object used to perform non-linear constrained optimization.
+
+    Args:
+        design_variables : list of objects which specify the design variables
+            to use in the optimization problem.
+        outputs : list of objects which specify the objective and constraints
+            to use in the optimization problem.
+        compute_object : object that computes all outputs 
+            when `compute_object.compute()` is called.
+        objective_index : index of objective in outputs, i.e. the objective that
+            will be minimized is `outputs[objective_index]`
+        vectorize_constraint_jac : vectorize the computation of the constraint 
+            jacobian which may help a lot when many constraints are present. Note
+            however that this is an experimental feature.
+    """
+
     def __init__(
         self,
         initial_design_variables: List[DesignVariable],
@@ -29,20 +46,6 @@ class Optimizer:
         objective_index: int = 0,
         vectorize_constraint_jac: bool = False,
     ):
-        """
-        Object used to perfrom non-linear constrained optimization.
-
-        Args:
-            design_variables : list of DesignVariable objects
-            outputs : list of Outputs objects
-            compute_object : ComputeObject what computes all outputs 
-                when `compute_object.compute()` is called
-            objective_index : index of objective in outputs, i.e. the objective that
-                will be minimized is `outputs[objective_index]`
-            vectorize_constraint_jac : vectorize the computation of the constraint 
-                jacobian which may help a lot when many constraints are present. Note
-                however that this is an experimental feature.
-        """
         self.vectorize_constraint_jac = bool(vectorize_constraint_jac)
         # check compute_object
         assert isinstance(compute_object, ComputeObject)

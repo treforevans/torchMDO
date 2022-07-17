@@ -5,6 +5,25 @@ Tensor = torch.Tensor
 
 
 class LiftingLineWing:
+    """
+    Lifting-line model of an aircraft wing.
+    This is used to compute the lift distribution and induced drag over a straight wing.
+    Note that only the specifications for half of the wing should be provided.
+
+    Args:
+        spanwise_loc : shape (m,) spanwise locations of the m wing segments. The root is 
+            considered to be zero and the node is the half-wing span.
+            We assume symmetrical loading so this should just be points 
+            from one half of wing.
+        chords : shape (m,) chord of each wing segment
+        alpha_sections : shape (m,) AoA (in rad) of each wing segment assuming zero 
+            aircraft AoA.
+        alpha_0s : shape (m,) zero lift AoA (in rad) of each wing segment assuming zero 
+            aircraft AoA.
+        AR : aspect ratio of the wing given by :math:`b^2/S` where `b` is the span and 
+            `S` is the wing area.
+    """
+
     def __init__(
         self,
         spanwise_loc: Tensor,
@@ -13,19 +32,6 @@ class LiftingLineWing:
         alpha_0s: Tensor,
         AR: Tensor,
     ):
-        """
-        Args:
-            spanwise_loc : shape (m,) spanwise locations of the m wing segments. The root is 
-                considered to be zero and the node is the half-wing span.
-                We assume symmetrical loading so this should just be points 
-                from one half of wing.
-            chords : shape (m,) chord of each wing segment
-            alpha_sections : shape (m,) AoA (in rad) of each wing segment assuming zero 
-                aircraft AoA.
-            alpha_0s : shape (m,) zero lift AoA (in rad) of each wing segment assuming zero 
-                aircraft AoA.
-            AR : aspect ratio (b^2/S)
-        """
         # internalize variables
         self.m = torch.numel(spanwise_loc)
         self.spanwise_loc = torch.atleast_1d(spanwise_loc)
@@ -80,7 +86,10 @@ class LiftingLineWing:
 
     def solve(self, Cl: Tensor) -> None:
         """
-        solve lifting line equations given a target aircraft Cl
+        solve lifting line equations given a target aircraft Cl.
+
+        Args:
+            Cl : Target lift coefficient.
         """
         self.Cl = Cl
         # given Cl, compute A1
