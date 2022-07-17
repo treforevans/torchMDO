@@ -12,11 +12,11 @@ class BeamFEA(BaseFEA):
     This model has 2 degrees-of-freedom per node.
 
     Args:
-        lengths : (n,) lengths of each beam segment
-        EIs: (n,) EIs of each beam segment
-        fixed_rotation: (n+1,) boolean tensor whether the rotation of each node is fixed.
-        fixed_translation: (n+1,) whether the translation of each node is fixed.
-        thicknesses : (n,) thicknesses of each beam segment which is useful for computing max strain
+        lengths : `(n_elems,)` lengths of each beam segment
+        EIs: `(n_elems,)` EIs of each beam segment
+        fixed_rotation: `(n_elems+1,)` boolean tensor whether the rotation of each node is fixed.
+        fixed_translation: `(n_elems+1,)` whether the translation of each node is fixed.
+        thicknesses : `(n_elems,)` thicknesses of each beam segment which is useful for computing max strain
     """
 
     def __init__(
@@ -42,9 +42,9 @@ class BeamFEA(BaseFEA):
         )
         assert torch.all(EIs >= 0)
         assert fixed_rotation.dtype == fixed_translation.dtype == torch.bool
-        self.n_beams = len(lengths)  # number of beams
+        self.n_elems = len(lengths)  # number of beams
         self.N = self.n_dof * self.n_nodes  # total number of DOFs
-        assert thicknesses is None or self.n_beams == len(thicknesses)
+        assert thicknesses is None or self.n_elems == len(thicknesses)
         self.lengths = torch.asarray(lengths)
         self.EIs = torch.asarray(EIs)
         assert torch.all(self.EIs >= 0), str(self.EIs)
@@ -92,10 +92,13 @@ class BeamFEA(BaseFEA):
         Compute the displacements of the beam given the specified loading.
 
         Args:
-            uniform_loads : shape `(n,)` uniform loads on each beam segment. 
+            uniform_loads : shape `(n_elems,)` uniform loads on each beam segment. 
                 Units should be in `N/m`.
-            f : shape `(n+1, 2)` force vector to use at the nodes. Note that 
+            f : shape `(n_elems+1, 2)` force vector to use at the nodes. Note that 
                 other forces will be added to this.
+        
+        Returns:
+            Displacements at each node which is of shape `(n_nodes, 2)`.
         """
         if f is not None:
             assert f.size() == (self.n_nodes, self.n_dof)
@@ -104,7 +107,7 @@ class BeamFEA(BaseFEA):
 
         # add the uniform loads to the force vector
         if uniform_loads is not None:
-            assert uniform_loads.size() == torch.Size([self.n_beams])
+            assert uniform_loads.size() == torch.Size([self.n_elems])
             assert uniform_loads.ndim == 1
             uniform_force = torch.asarray(uniform_loads) * self.lengths / 2
             uniform_moment = uniform_force * self.lengths / 6.0
@@ -132,11 +135,15 @@ class BeamFEA(BaseFEA):
     def get_max_strain(self, displacements: Tensor) -> Tensor:
         """
         Computes the maximum strain across the beam cross-section.
+        Note that this can only be used if `thicknesses` were specified.
 
         Args:
             displacements: displacements as returned by :func:`~BeamFEA.get_displacements`.
+        
+        Returns:
+            The max strain on each beam section which is of shape `(n_elems,)`
         """
-        assert displacements.shape == (self.n_beams + 1, 2)
+        assert displacements.shape == (self.n_elems + 1, 2)
         assert self.thicknesses is not None
 
         # calculate curvature = d theta / ds
@@ -180,4 +187,4 @@ class BeamFEA(BaseFEA):
     @property
     def n_nodes(self) -> int:
         """ Number of nodes in the model. """
-        return self.n_beams + 1
+        return self.n_elems + 1

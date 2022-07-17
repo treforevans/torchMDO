@@ -1,3 +1,8 @@
+## Docs
+- [ ] Add readme to docs, may need to convert to rst
+- [ ] Nbsphinx to include the ipython notebooks
+- [x] Figure out how to only add some class methods to sphinx
+
 ## Optimizer
 - [ ] implement a switch to turn pytorch gradients on or off for testing/comparison.
 - [ ] write a test with a linear objective (linear constraints are used in the wing design example)

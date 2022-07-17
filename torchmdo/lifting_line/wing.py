@@ -1,4 +1,5 @@
 import torch
+from typing import Tuple
 from pdb import set_trace
 
 Tensor = torch.Tensor
@@ -83,17 +84,23 @@ class LiftingLineWing:
             + ns / torch.sin(thetas)
         )
         self.A_sys_lu = torch.lu(self.A_sys)
+        # save the target Cl from the last solve (init to None)
+        self.Cl_solved = None
 
     def solve(self, Cl: Tensor) -> None:
         """
-        solve lifting line equations given a target aircraft Cl.
+        solve lifting line equations given a target aircraft lift coefficient (:math:`C_L`).
 
         Args:
-            Cl : Target lift coefficient.
+            Cl : Target wing lift coefficient (:math:`C_L`).
         """
-        self.Cl = Cl
+        assert Cl.numel() == 1
+        # determine if the computation has already been completed
+        if self.Cl_solved is not None and Cl == self.Cl_solved:
+            # this Cl has already been solved so return
+            return
         # given Cl, compute A1
-        self.A1 = self.Cl / (torch.pi * self.AR)
+        self.A1 = Cl / (torch.pi * self.AR)
         # compute the target vector b to solve Ax=b
         b_sys = (
             self.alpha_sections
@@ -108,22 +115,37 @@ class LiftingLineWing:
         x = torch.lu_solve(b_sys, *self.A_sys_lu)
         self.alpha_aircraft = x[0].reshape(())
         self.Ans = torch.squeeze(x[1:], dim=1)  # coefficients corresponding to ns
+        # save the target Cl solved
+        self.Cl_solved = Cl.clone()
 
-    def induced_drag_coeff(self) -> Tensor:
-        """ compute the induced drag coefficient """
-        # compute induced drag factor and span efficiency factor (delta)
-        self.induced_drag_factor = torch.sum(self.ns * torch.square(self.Ans / self.A1))
-        assert self.induced_drag_factor >= 0
-        self.span_efficiency_factor = 1.0 / (1.0 + self.induced_drag_factor)
-        self.Cdi = torch.square(torch.as_tensor(self.Cl)) / (
-            torch.pi * self.span_efficiency_factor * self.AR
-        )
-        return self.Cdi
-
-    def alpha_induced_fun(self, spanwise_loc: Tensor) -> Tensor:
+    def induced_drag(self, Cl: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """
-        Induced AoA at a given spanwise locations.
+        Compute the wing induced drag coefficient (:math:`C_D`), span efficiency factor, and
+        induced drag factor.
+        
+        Args:
+            Cl : Target wing lift coefficient (:math:`C_L`).
+        
+        Returns:
+            ``[induced_drag_coefficient, span_efficiency_factor, induced_drag_factor]``
+        """
+        self.solve(Cl=Cl)
+        # compute induced drag factor and span efficiency factor (delta)
+        induced_drag_factor = torch.sum(self.ns * torch.square(self.Ans / self.A1))
+        assert induced_drag_factor >= 0, "sanity check"
+        span_efficiency_factor = 1.0 / (1.0 + induced_drag_factor)
+        induced_drag_coefficient = torch.square(Cl) / (
+            torch.pi * span_efficiency_factor * self.AR
+        )
+        return induced_drag_coefficient, span_efficiency_factor, induced_drag_factor
 
+    def alpha_induced_fun(self, spanwise_loc: Tensor, Cl: Tensor) -> Tensor:
+        """
+        Induced angle of attack (AoA) at a given spanwise locations.
+
+        Args:
+            spanwise_loc: the spanwise locations to evaluate the induced AoA.
+            Cl : Target wing lift coefficient (:math:`C_L`).
         Notes:
             To compute effective angle of attack and local section 
             lift (assuming thin airfoil theory):
@@ -131,6 +153,7 @@ class LiftingLineWing:
             >>> alpha_effective = alpha_section + alpha_aircraft - alpha_induced
             >>> cl = 2.*torch.pi*(alpha_effective - alpha_0)
         """
+        self.solve(Cl=Cl)
         assert torch.all(spanwise_loc >= 0) and torch.all(spanwise_loc <= self.span / 2)
         thetas = torch.arccos(-spanwise_loc * 2.0 / self.span).reshape((1, -1))
         ns = self.ns.reshape((1, -1))  # reshape for broadcasting
@@ -139,8 +162,14 @@ class LiftingLineWing:
         )
         return alpha_induced
 
-    def alpha_induced(self) -> Tensor:
-        """ compute induced angle of attack at each spanwise reference """
+    def alpha_induced(self, Cl: Tensor) -> Tensor:
+        """
+        compute induced angle of attack at each spanwise reference.
+        
+        Args:
+            Cl : Target wing lift coefficient (:math:`C_L`).
+        """
+        self.solve(Cl=Cl)
         ns = self.ns.reshape((1, -1))  # reshape for broadcasting
         thetas = self.spanwise_thetas.reshape((-1, 1))  # reshape for broadcasting
         alpha_induced = self.A1 + torch.sum(
@@ -148,15 +177,28 @@ class LiftingLineWing:
         )
         return alpha_induced
 
-    def alpha_effective(self) -> Tensor:
-        """ compute effective angle of attack at each spanwise reference """
-        alpha_induced = self.alpha_induced()
+    def alpha_effective(self, Cl: Tensor) -> Tensor:
+        """
+        Compute effective angle of attack at each spanwise reference.
+        
+        Args:
+            Cl : Target wing lift coefficient (:math:`C_L`).
+        """
+        self.solve(Cl=Cl)
+        alpha_induced = self.alpha_induced(Cl=Cl)
         alpha_effective = self.alpha_sections + self.alpha_aircraft - alpha_induced
         return alpha_effective
 
-    def section_lift_coeff(self) -> Tensor:
-        """ compute sectional lift coefficient assuming thin airfoil theory """
-        alpha_effective = self.alpha_effective()
+    def section_lift_coeff(self, Cl: Tensor) -> Tensor:
+        """
+        Compute the sectional lift coefficient at each spanwise reference assuming 
+        thin airfoil theory.
+        
+        Args:
+            Cl : Target wing lift coefficient (:math:`C_L`).
+        """
+        self.solve(Cl=Cl)
+        alpha_effective = self.alpha_effective(Cl=Cl)
         cl = 2.0 * torch.pi * (alpha_effective - self.alpha_0s)
         return cl
 

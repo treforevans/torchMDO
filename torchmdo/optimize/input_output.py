@@ -188,5 +188,10 @@ class DesignVariable(InputOutput):
             have an upper bound given by this value.
     """
 
-    pass
-
+    def stringify(self) -> str:
+        """
+        Returns a string version of the class that can be immediately used to reproduce
+        it. For instance, this can be used to save the state of the design variable as 
+        a string after optimization has completed.
+        """
+        return super().__str__()

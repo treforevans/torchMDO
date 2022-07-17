@@ -26,8 +26,7 @@ class TestLiftingLine:
 
         # Compute lift distribution for given CL
         Cl_target = torch.ones(())
-        wing.solve(Cl=Cl_target)
-        Cl_section = wing.section_lift_coeff()
+        Cl_section = wing.section_lift_coeff(Cl=Cl_target)
         if to_plot:
             plt.figure()
             plt.plot(spanwise_loc, Cl_section)
@@ -38,7 +37,7 @@ class TestLiftingLine:
         # Compute `alpha_effective`
         if to_plot:
             plt.figure()
-            plt.plot(spanwise_loc, wing.alpha_effective() * 180 / torch.pi)
+            plt.plot(spanwise_loc, wing.alpha_effective(Cl=Cl_target) * 180 / torch.pi)
             plt.xlabel("spanwise location")
             plt.ylabel("effective AoA")
 
@@ -46,9 +45,12 @@ class TestLiftingLine:
         print("Aircraft AOA:", wing.alpha_aircraft * 180 / torch.pi)
 
         # Compute the induced drag and span efficiency factor
-        print("Induced drag coeff:", wing.induced_drag_coeff())
-        print("Induced drag factor:", wing.induced_drag_factor)
-        print("Span efficiency factor:", wing.span_efficiency_factor)
+        Cdi, span_efficiency_factor, induced_drag_factor = wing.induced_drag(
+            Cl=Cl_target
+        )
+        print("Induced drag coeff:",)
+        print("Induced drag factor:", induced_drag_factor)
+        print("Span efficiency factor:", span_efficiency_factor)
 
         # Check `A1`
         assert_almost_equal(Cl_target, wing.A1 * torch.pi * AR)

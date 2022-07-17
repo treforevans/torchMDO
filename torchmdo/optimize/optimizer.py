@@ -341,6 +341,10 @@ class Optimizer:
 
         Args:
             maxiter: maximum number of optimization iterations
+            display_step: number of optimization iterations between printing a logging
+                message to monitor the procedure.
+            keep_feasible: whether the optimizer should attempt to keep the optimization
+                trajectory in a feasible region.
             **trust_constr_options : from https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html
         """
         self.display_step = display_step
@@ -421,10 +425,14 @@ class Optimizer:
             )
         return False
 
-    def check_grad(self):
+    def check_grad(self) -> Tuple[Tensor, Tensor]:
         """ 
         verifies that the objective gradient and constraint jacobian are correct
         at the current setting of the design variables.
+
+        Returns:
+            The error in the objective gradient and
+            the error in the constraint jacobian, respectively.
         """
         # check the objective gradient
         objective_grad_error = check_grad(
@@ -442,7 +450,7 @@ class Optimizer:
             )
             for i in range(self.num_constraints)
         ]
-        return objective_grad_error, constraints_jac_error
+        return as_tensor(objective_grad_error), as_tensor(constraints_jac_error)
 
     def __str__(self):
         string = ""

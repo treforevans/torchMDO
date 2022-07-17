@@ -9,4 +9,4 @@ Compute Object
 ---------------------------------------
 
 .. autoclass:: ComputeObject
-   :members:
+   :members: compute

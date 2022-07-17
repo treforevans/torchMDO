@@ -9,17 +9,17 @@ Design Variables
 ---------------------------------------
 
 .. autoclass:: DesignVariable
-   :members:
+   :members: stringify
 
 Objectives and Constraints
 ---------------------------------------
 
 .. autoclass:: Output
-   :members:
+   :no-members:
 
 Optimizer
 ---------------------------------------
 
 .. autoclass:: Optimizer
-   :members:
+   :members: optimize, check_grad
 
