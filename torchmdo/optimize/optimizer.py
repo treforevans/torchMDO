@@ -8,7 +8,7 @@ from scipy.optimize import (
 )
 from scipy.sparse import csr_matrix
 from logging import getLogger
-from typing import Union, Optional, List, Tuple, cast
+from typing import Union, Optional, List, Tuple, cast, Dict
 from warnings import warn
 from pdb import set_trace
 from functools import cached_property
@@ -341,7 +341,7 @@ class Optimizer:
         maxiter: int = 1000,
         display_step: int = 50,
         keep_feasible: bool = False,
-        **trust_constr_options
+        options: Optional[Dict] = None,
     ) -> Optional[OptimizeResult]:
         """
         Optimize the objective, subject to constraints
@@ -351,8 +351,10 @@ class Optimizer:
             display_step: number of optimization iterations between printing a logging
                 message to monitor the procedure.
             keep_feasible: whether the optimizer should attempt to keep the optimization
-                trajectory in a feasible region.
-            **trust_constr_options : from https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html
+                trajectory in a feasible region. Default: `False`.
+            options: additional optimization options from scipy's `trust-constr`
+                implementation. See 
+                `here <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html>`_.
         """
         self.display_step = display_step
         # compute the current iterate first. This is nessessary since we need to know the dimensions of all the outputs
@@ -394,7 +396,7 @@ class Optimizer:
                 bounds=[bound for bound in zip(*self.variable_bounds_tensor)],
                 method="trust-constr",
                 constraints=constraints,
-                options=dict(maxiter=maxiter, **trust_constr_options),
+                options=dict(maxiter=maxiter, **({} if options is None else options)),
                 callback=(
                     (lambda xk, res: self.callback(xk, res))
                     if display_step < maxiter
