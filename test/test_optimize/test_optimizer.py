@@ -30,28 +30,30 @@ class TestOptimizer:
         design_variables = [
             torchmdo.DesignVariable(name="x"),
         ]
-        outputs = [
-            torchmdo.Output(
-                name="objective_value",
-                lower=torch.as_tensor(Rosenbrock.optimal_value)
-                if constrained
-                else None,
-                upper=1e3 * torch.ones(()) if constrained else None,
-            )
-        ]
+        objective = torchmdo.Minimize(
+            name="objective_value",
+            lower=torch.as_tensor(Rosenbrock.optimal_value) if constrained else None,
+            upper=1e3 * torch.ones(()) if constrained else None,
+        )
+        constraints = []
         optimizer = torchmdo.Optimizer(
             initial_design_variables=design_variables,
-            outputs=outputs,
+            objective=objective,
+            constraints=constraints,
             compute_object=model,
         )
-        return model, design_variables, outputs, optimizer
+        return model, design_variables, objective, constraints, optimizer
 
     def test_optimize(self):
         """minimize the rosenbrock test function with and without an output constraint."""
         for constrained in [False, True]:
-            model, design_variables, outputs, optimizer = self.setup_rosenbrock(
-                constrained=constrained
-            )
+            (
+                model,
+                design_variables,
+                objective,
+                constraints,
+                optimizer,
+            ) = self.setup_rosenbrock(constrained=constrained)
             optimizer.optimize(maxiter=10000)
             assert_array_almost_equal(
                 optimizer.variables_tensor.detach(),
@@ -65,9 +67,13 @@ class TestOptimizer:
         verifies that the objective gradient and constraint jacobian are correct
         at the initial guess.
         """
-        model, design_variables, outputs, optimizer = self.setup_rosenbrock(
-            constrained=True
-        )
+        (
+            model,
+            design_variables,
+            objective,
+            constraints,
+            optimizer,
+        ) = self.setup_rosenbrock(constrained=True)
         # check gradients
         objective_grad_error, constraints_jac_error = optimizer.check_grad()
         assert_array_less(objective_grad_error, 1e-5, "objective gradient failed.")

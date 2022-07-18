@@ -11,10 +11,19 @@ Design Variables
 .. autoclass:: DesignVariable
    :members: stringify
 
-Objectives and Constraints
+Objectives
 ---------------------------------------
 
-.. autoclass:: Output
+.. autoclass:: Minimize
+   :no-members:
+
+.. autoclass:: Maximize
+   :no-members:
+
+Constraints
+---------------------------------------
+
+.. autoclass:: Constraint
    :no-members:
 
 Optimizer

@@ -3,6 +3,7 @@ import numpy
 from dataclasses import dataclass, replace
 from typing import Union, Optional, List
 from functools import cached_property
+from warnings import warn
 from ..utils import is_broadcastable
 from ..model import ComputeObject
 
@@ -141,15 +142,24 @@ class InputOutput:
 
 @dataclass
 class Output(InputOutput):
+    """ Base class for outputs (objectives or constraints). """
+
+    linear: bool = False  # set true if this output is linear in the input
+
+    def __post_init__(self,):
+        super().__post_init__()
+        if self.value is not None:
+            warn("Initial value provided for Objective or Constraint will be ignored.")
+
+
+@dataclass
+class Constraint(Output):
     """ 
-    Specifies the output of a `ComputeObject` used for optimization which may be
-    an objective or constraint.
+    Specifies an equality or inequality constraint to be used for optimization.
     
     Args:
-        name: the name of an attribute in a `ComputeObject` that will be 
-            used as an output (an objective or constraint) for optimization.
-        value: unused upon initialization, this attribute
-            will be updated with the value of the output.
+        name: the name of an attribute in a :class:`~.ComputeObject` that will be 
+            used as a constraint for optimization.
         lower: if specified, this output will be constrained
             as an inequality constraint such that the output value must be 
             greater than or equal to `lower`.
@@ -160,11 +170,52 @@ class Output(InputOutput):
             less than or equal to `upper`.
             If `lower` is also specified and `lower == upper` then this will 
             be an equality constraint.
-        linear: if True then the output will be treated as
-            linear in the `DesignVariables` for the optimization problem.
+        linear: if True then this constraint will be treated as
+            linear in the design variables
+            (as specified by :class:`~.DesignVariable`).
+            Default: `False`.
     """
 
-    linear: bool = False  # set true if this output is linear in the input
+    pass
+
+
+@dataclass
+class Objective(Output):
+    """ Base class for objectives. """
+
+    pass
+
+
+@dataclass
+class Minimize(Objective):
+    """ 
+    Specifies an objective to be minimized during optimization.
+    
+    Args:
+        name: the name of an attribute in a :class:`~.ComputeObject` that will be 
+            minimized during optimization.
+        linear: if True then this objective will be treated as
+            linear in the design variables
+            (as specified by :class:`~.DesignVariable`).
+            Default: `False`.
+    """
+
+    pass
+
+
+@dataclass
+class Maximize(Objective):
+    """ 
+    Specifies an objective to be maximized during optimization.
+    
+    Args:
+        name: the name of an attribute in a :class:`~.ComputeObject` that will be 
+            maximized during optimization.
+        linear: if True then this objective will be treated as
+            linear in the design variables
+            (as specified by :class:`~.DesignVariable`).
+            Default: `False`.
+    """
 
     pass
 
@@ -175,12 +226,12 @@ class DesignVariable(InputOutput):
     Specifies a design variable, along with input bounds for that variable, if any.
     
     Args:
-        name: the name of an attribute in a `ComputeObject` that will 
+        name: the name of an attribute in a :class:`~.ComputeObject` that will 
             be used as a design variable for optimization.
         value: if specified, this value will be used as an
             initial value of this design variable for optimization.
             If not specified, then the value of the attribute stored in 
-            the `ComputeObject` with the same `name` will be used as the 
+            the :class:`~.ComputeObject` with the same `name` will be used as the 
             initial value of this design variable for optimization.
         lower: if specified, this design variable will
             have a lower bound given by this value.

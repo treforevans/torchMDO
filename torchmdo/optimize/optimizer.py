@@ -12,7 +12,14 @@ from typing import Union, Optional, List, Tuple, cast
 from warnings import warn
 from pdb import set_trace
 from functools import cached_property
-from .input_output import DesignVariable, Output
+from .input_output import (
+    DesignVariable,
+    Output,
+    Constraint,
+    Objective,
+    Minimize,
+    Maximize,
+)
 from ..model import ComputeObject
 
 logger = getLogger(__name__)
@@ -25,25 +32,24 @@ class Optimizer:
     Object used to perform non-linear constrained optimization.
 
     Args:
-        design_variables : list of objects which specify the design variables
-            to use in the optimization problem.
-        outputs : list of objects which specify the objective and constraints
-            to use in the optimization problem.
-        compute_object : object that computes all outputs 
+        initial_design_variables: list of design variables to be used in the 
+            optimization problem.
+        objective: objective to be used in the optimization problem.
+        constraints: list of constraints to be used in the optimization problem.
+        compute_object: object that computes all outputs 
             when `compute_object.compute()` is called.
-        objective_index : index of objective in outputs, i.e. the objective that
-            will be minimized is `outputs[objective_index]`
-        vectorize_constraint_jac : vectorize the computation of the constraint 
-            jacobian which may help a lot when many constraints are present. Note
-            however that this is an experimental feature.
+        vectorize_constraint_jac: if true then the computation of the constraint 
+            jacobian will be vectorized which may help a lot when many 
+            constraints are present. Note, however, that this is an experimental 
+            feature. Default: `False`.
     """
 
     def __init__(
         self,
         initial_design_variables: List[DesignVariable],
-        outputs: List[Output],
+        objective: Union[Minimize, Maximize],
+        constraints: List[Constraint],
         compute_object: ComputeObject,
-        objective_index: int = 0,
         vectorize_constraint_jac: bool = False,
     ):
         self.vectorize_constraint_jac = bool(vectorize_constraint_jac)
@@ -51,16 +57,11 @@ class Optimizer:
         assert isinstance(compute_object, ComputeObject)
         self.compute_object = compute_object
         # check outputs
-        assert len(outputs) >= 1
-        for out in outputs:
-            assert isinstance(out, Output)
-        self.outputs = outputs
-        # check objective index
-        assert isinstance(objective_index, int)
-        assert objective_index in torch.arange(
-            len(self.outputs)
-        ), "objective_index not in range."
-        self.objective_index = objective_index
+        assert isinstance(objective, (Minimize, Maximize))
+        for out in constraints:
+            assert isinstance(out, Constraint)
+        self.outputs = cast(List[Output], [objective, *constraints])
+        self.objective_index = 0  # is always the first one
         # check to make sure that the compute object has all of the design variables attributes
         for idv in initial_design_variables:
             assert isinstance(idv, DesignVariable)
@@ -241,6 +242,9 @@ class Optimizer:
         ), "Non-finite value encountered in the objective = %s" % str(
             objective.detach()
         )
+        # determine if we need to negate the objective
+        if isinstance(self.outputs[self.objective_index], Maximize):
+            objective = -objective  # negate
         # return the objective and detach it so we can convert it to numpy
         return objective.reshape(()).detach()
 
@@ -268,6 +272,9 @@ class Optimizer:
             "Non-finite value encountered in the objective gradient = %s"
             % str(objective_grad.detach())
         )
+        # determine if we need to negate the objective
+        if isinstance(self.outputs[self.objective_index], Maximize):
+            objective_grad = -objective_grad  # negate
         return objective_grad
 
     def constraint_fun(
@@ -418,7 +425,9 @@ class Optimizer:
                 "niter: %04d, fun: %.4f, constr_violation: %.3g, execution_time: %.1fs"
                 % (
                     res["niter"],
-                    res["fun"],
+                    -res["fun"]
+                    if isinstance(self.outputs[self.objective_index], Maximize)
+                    else res["fun"],
                     res["constr_violation"],
                     res["execution_time"],
                 )

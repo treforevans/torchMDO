@@ -4,6 +4,7 @@
 - [x] Figure out how to only add some class methods to sphinx
 
 ## Optimizer
+- [x] add an `Objective` class with `Minimize`, `Maximize` subclasses that can be used to directly specify the objective.
 - [ ] implement a switch to turn pytorch gradients on or off for testing/comparison.
 - [ ] write a test with a linear objective (linear constraints are used in the wing design example)
 

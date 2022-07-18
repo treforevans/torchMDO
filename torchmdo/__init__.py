@@ -1,6 +1,6 @@
 from . import fea, lifting_line, optimize, model
 from .model import ComputeObject
-from .optimize import Optimizer, DesignVariable, Output
+from .optimize import Optimizer, DesignVariable, Constraint, Minimize, Maximize
 import torch
 from sys import stdout
 from logging import basicConfig, INFO
