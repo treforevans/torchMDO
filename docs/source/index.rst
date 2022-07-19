@@ -7,8 +7,15 @@
 
 torchmdo's documentation
 ====================================
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: Tutorials:
+
+   examples/wing_aerodynamic_optimization.ipynb
 
 .. toctree::
+   :glob:
    :maxdepth: 1
    :caption: Package Reference
 

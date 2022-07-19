@@ -1,4 +1,5 @@
 from setuptools import setup
+import itertools
 import os.path
 import codecs
 
@@ -18,6 +19,26 @@ def get_version(rel_path):
         raise RuntimeError("Unable to find version string.")
 
 
+install_requires = [
+    "gpytorch~=1.7.0",
+    "numpy~=1.23.0",
+    "scipy~=1.9.0rc1",
+    "torch~=1.12.0",
+]
+extras_require = dict(
+    examples=["matplotlib",],
+    dev=["black", "twine", "pytest",],
+    docs=[
+        "ipython",
+        "ipykernel",
+        "nbsphinx",
+        "sphinx~=5.0.2",
+        "sphinx_rtd_theme",
+        "sphinx-autodoc-typehints",
+    ],
+)
+extras_require["all"] = list(itertools.chain.from_iterable(extras_require.values()))
+
 setup(
     name="torchmdo",
     version=get_version(os.path.join("torchmdo", "__init__.py")),
@@ -26,22 +47,9 @@ setup(
     author_email="trefor@infera.ai",
     packages=["torchmdo"],
     zip_safe=True,
-    install_requires=[
-        "numpy~=1.23.0",
-        "scipy~=1.9.0rc1",
-        "gpytorch~=1.7.0",
-        "torch~=1.12.0",
-    ],
     license="AGPL-3.0-or-later",
-    extras_require=dict(
-        full=[
-            "matplotlib",
-            "pytest",
-            "sphinx~=5.0.2",
-            "sphinx_rtd_theme",
-            "sphinx-autodoc-typehints",
-        ]
-    ),
+    install_reqires=install_requires,
+    extras_require=extras_require,
     keywords=[
         "optimization",
         "MDO",

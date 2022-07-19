@@ -18,7 +18,7 @@ advantage of the automatic differentiation capabilities provided by PyTorch.
 For development, run
 
 ```bash
-pip install -e .[full]
+pip install -e .[examples,dev]
 ```
 
 Confirm setup by running tests as follows:
@@ -45,7 +45,7 @@ _Rosenbrock objective (such as [this](https://bit.ly/3AVCIUY))._
 
 [IPython notebook](./examples/wing_aerodynamic_optimization.ipynb)
 
-In this example we consider a 50-dimensional nonlinear constrained optimization problem to optimize the shape 
+In this simple example, we consider a 50-dimensional nonlinear constrained optimization problem to optimize the shape 
 of a wing to minimize induced drag, subject to a wing-area equality constraint.
 We also compare the performance of modern automatic differentiation to the use of (classical) finite-difference
 methods.

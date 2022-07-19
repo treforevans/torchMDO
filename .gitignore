@@ -136,3 +136,6 @@ dmypy.json
 
 # temporary image files for generating a gif
 *tmp.jpg
+
+# examples that are copied over in docs generation
+/docs/source/examples
