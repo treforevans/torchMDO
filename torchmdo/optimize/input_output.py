@@ -245,4 +245,4 @@ class DesignVariable(InputOutput):
         it. For instance, this can be used to save the state of the design variable as 
         a string after optimization has completed.
         """
-        return super().__str__()
+        return super().stringify()

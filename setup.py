@@ -28,10 +28,18 @@ setup(
     zip_safe=True,
     install_requires=[
         "numpy~=1.23.0",
-        "scipy",
-        "matplotlib",
-        "pytest",
+        "scipy~=1.9.0rc1",
         "gpytorch~=1.7.0",
         "torch~=1.12.0",
     ],
+    license="AGPL-3.0-or-later",
+    extras_require=dict(
+        full=[
+            "matplotlib",
+            "pytest",
+            "sphinx~=5.0.2",
+            "sphinx_rtd_theme",
+            "sphinx-autodoc-typehints",
+        ]
+    ),
 )

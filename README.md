@@ -18,7 +18,7 @@ advantage of the automatic differentiation capabilities provided by PyTorch.
 For development, run
 
 ```bash
-python setup.py develop
+pip install -e .[full]
 ```
 
 Confirm setup by running tests as follows:
