@@ -40,14 +40,14 @@ class InputOutput:
                 self.lower <= self.upper
             ), "Lower bound is greater than upper bound."
 
-    def extract_val(self, compute_object: Model):
+    def extract_val(self, model: Model):
         """
         extract value from a compute object
 
         Args:
-            compute_object: object to extract value from.
+            model: object to extract value from.
         """
-        self.value = as_tensor(getattr(compute_object, self.name))
+        self.value = as_tensor(getattr(model, self.name))
 
     @property
     def value_tensor(self) -> Tensor:

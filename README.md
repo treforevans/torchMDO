@@ -37,13 +37,18 @@ _Rosenbrock objective (such as [this](https://bit.ly/3AVCIUY))._
 
 ### Aerodynamic optimization of a wing planform
 
+<img 
+  align="right" 
+  style="width: 500px; height: auto; object-fit: contain" 
+  hspace="10" 
+  src="examples/wing_aerodynamic_optimization.gif">
+
 [IPython notebook](./examples/wing_aerodynamic_optimization.ipynb)
 
-In this example we optimize the chord distribution of a wing using a lifting-line aerodynamic model
-to recover an elliptical wing.
-In this problem we also specify a wing area equality constraint (which is a linear constraint 
-given the parameterization).
-
+In this example we consider a 50-dimensional nonlinear constrained optimization problem to optimize the shape 
+of a wing to minimize induced drag, subject to a wing-area equality constraint.
+We also compare the performance of modern automatic differentiation to the use of (classical) finite-difference
+methods.
 
 ## Performance
 

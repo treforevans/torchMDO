@@ -30,5 +30,5 @@ Optimizer
 ---------------------------------------
 
 .. autoclass:: Optimizer
-   :members: optimize, check_grad
+   :members: optimize, check_grad, callback
 

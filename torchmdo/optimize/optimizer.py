@@ -8,7 +8,7 @@ from scipy.optimize import (
 )
 from scipy.sparse import csr_matrix
 from logging import getLogger
-from typing import Union, Optional, List, Tuple, cast, Dict
+from typing import Union, Optional, List, Tuple, cast, Dict, Callable
 from warnings import warn
 from pdb import set_trace
 from functools import cached_property
@@ -36,8 +36,8 @@ class Optimizer:
             optimization problem.
         objective: objective to be used in the optimization problem.
         constraints: list of constraints to be used in the optimization problem.
-        compute_object: object that computes all outputs 
-            when `compute_object.compute()` is called.
+        model: object that computes all outputs 
+            when ``model.compute()`` is called.
         vectorize_constraint_jac: if true then the computation of the constraint 
             jacobian will be vectorized which may help a lot when many 
             constraints are present. Note, however, that this is an experimental 
@@ -49,13 +49,13 @@ class Optimizer:
         initial_design_variables: List[DesignVariable],
         objective: Union[Minimize, Maximize],
         constraints: List[Constraint],
-        compute_object: Model,
+        model: Model,
         vectorize_constraint_jac: bool = False,
     ):
         self.vectorize_constraint_jac = bool(vectorize_constraint_jac)
-        # check compute_object
-        assert isinstance(compute_object, Model)
-        self.compute_object = compute_object
+        # check model
+        assert isinstance(model, Model)
+        self.model = model
         # check outputs
         assert isinstance(objective, (Minimize, Maximize))
         for out in constraints:
@@ -65,7 +65,7 @@ class Optimizer:
         # check to make sure that the compute object has all of the design variables attributes
         for idv in initial_design_variables:
             assert isinstance(idv, DesignVariable)
-            if not hasattr(self.compute_object, idv.name):
+            if not hasattr(self.model, idv.name):
                 raise KeyError(
                     "Name '%s' of the design variable does not match an attribute in the Model"
                     % idv.name
@@ -73,10 +73,10 @@ class Optimizer:
             # if the initial value of the design variable is not set then extract it
             # from the compute object
             if idv.value is None:
-                assert getattr(self.compute_object, idv.name) is not None, (
+                assert getattr(self.model, idv.name) is not None, (
                     "No initial value found for design variable '%s'" % idv.name
                 )
-                idv.extract_val(compute_object=self.compute_object)
+                idv.extract_val(model=self.model)
         self.initial_design_variables = initial_design_variables
         # set parameters in the compute object to the initial design variables
         self.variables_object = self.initial_design_variables
@@ -102,7 +102,7 @@ class Optimizer:
         create a copy of the initial design variables with a change made to the value
         """
         design_variables = [
-            idv.replace(value=as_tensor(getattr(self.compute_object, idv.name)))
+            idv.replace(value=as_tensor(getattr(self.model, idv.name)))
             for idv in self.initial_design_variables
         ]
         return design_variables
@@ -115,7 +115,7 @@ class Optimizer:
         for dv in design_variables:
             # make sure design variables are of the correct type
             assert isinstance(dv, DesignVariable)
-            setattr(self.compute_object, dv.name, dv.value_tensor)
+            setattr(self.model, dv.name, dv.value_tensor)
         # reset state since variables changed
         self.reset_state()
 
@@ -142,7 +142,7 @@ class Optimizer:
             i_cur = 0  # current variable index
             for idv in self.initial_design_variables:
                 setattr(
-                    self.compute_object,
+                    self.model,
                     idv.name,
                     torch.reshape(value[i_cur : (i_cur + idv.numel)], idv.shape),
                 )
@@ -222,11 +222,11 @@ class Optimizer:
             return
         else:
             # run the objective and constraint functions
-            self.compute_object.compute(**kwargs)
+            self.model.compute(**kwargs)
 
             # extract the outputs
             for out in self.outputs:
-                out.extract_val(compute_object=self.compute_object)
+                out.extract_val(model=self.model)
 
     def objective_fun(self, x: Union[ndarray, Tensor]) -> Tensor:
         """ return the objective """
@@ -342,6 +342,7 @@ class Optimizer:
         display_step: int = 50,
         keep_feasible: bool = False,
         use_finite_diff: bool = False,
+        callback: Optional[Callable[[ndarray, OptimizeResult], bool]] = None,
         **optimizer_options
     ) -> Optional[OptimizeResult]:
         """
@@ -357,6 +358,10 @@ class Optimizer:
                 differences rather than using pytorch's automatic differentiation.
                 This will result in less accurate gradients and slower computation
                 but can be useful for debugging.
+            callback: callback function which must match the function signature of
+                :func:`Optimizer.callback` which is the default callback function. 
+                Note that if specified then `display_step` will be ignored unless the
+                user provided callback makes a call to :func:`Optimizer.callback`.
             optimizer_options: additional optimization options from scipy's `trust-constr`
                 implementation. See 
                 `here <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html>`_.
@@ -402,11 +407,9 @@ class Optimizer:
                 method="trust-constr",
                 constraints=constraints,
                 options=dict(maxiter=maxiter, **optimizer_options),
-                callback=(
-                    (lambda xk, res: self.callback(xk, res))
-                    if display_step < maxiter
-                    else None
-                ),
+                callback=callback
+                if callback is not None
+                else (self.callback if display_step < maxiter else None),
             )
         except (KeyboardInterrupt):
             logger.info("Keyboard interrupt raised. Cleaning up...")
@@ -426,7 +429,17 @@ class Optimizer:
             self.variables_tensor = as_tensor(res["x"])
             return res
 
-    def callback(self, xk, res):
+    def callback(self, xk: ndarray, res: OptimizeResult) -> bool:
+        """
+        Callback function for scipy minimize.
+
+        Args:
+            xk: current design variable setting.
+            res: current optimization result and details.
+
+        Returns:
+            Flag indicating whether to terminate optimization.
+        """
         if res["niter"] == 1 or res["niter"] % self.display_step == 0:
             logger.info(
                 "niter: %04d, fun: %.4f, constr_violation: %.3g, execution_time: %.1fs"

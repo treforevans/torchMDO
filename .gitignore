@@ -133,3 +133,6 @@ dmypy.json
 
 # mac files
 *.DS_Stores
+
+# temporary image files for generating a gif
+*tmp.jpg

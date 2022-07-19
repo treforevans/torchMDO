@@ -138,7 +138,7 @@ class BeamFEA(BaseFEA):
         Note that this can only be used if `thicknesses` were specified.
 
         Args:
-            displacements: displacements as returned by :func:`~BeamFEA.get_displacements`.
+            displacements: displacements as returned by :func:`BeamFEA.get_displacements`.
         
         Returns:
             The max strain on each beam section which is of shape `(n_elems,)`

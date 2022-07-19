@@ -41,7 +41,7 @@ class TestOptimizer:
             initial_design_variables=design_variables,
             objective=objective,
             constraints=constraints,
-            compute_object=model,
+            model=model,
         )
         return model, design_variables, objective, constraints, optimizer
 
