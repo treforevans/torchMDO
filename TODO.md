@@ -5,11 +5,13 @@
 
 ## Optimizer
 - [x] add an `Objective` class with `Minimize`, `Maximize` subclasses that can be used to directly specify the objective.
-- [ ] implement a switch to turn pytorch gradients on or off for testing/comparison in `optimize`.
+- [x] implement a switch to turn pytorch gradients on or off for testing/comparison in `optimize`.
 - [ ] add a way to specify a callback function (e.g. for plotting)
 - [ ] add example to optimizer docstring
 - [ ] write a test with a linear objective (linear constraints are used in the wing design example)
-- [ ] consider adding a `Target` objective whose goal is to minimize the least-squares distance from a target value
+- [ ] consider adding other objectives, although these are non-standard:
+  - [ ] consider adding a `Target` objective whose goal is to minimize the least-squares distance from a target value
+  - [ ] consider adding a `FindFeasible` objective
 
 ## Examples
 - [x] aerodynamic planform optimization of a wing -> elliptical

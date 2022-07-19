@@ -6,6 +6,7 @@ from numpy.testing import (
     assert_array_less,
 )
 from .synthetic_functions import Rosenbrock
+from pdb import set_trace
 
 Tensor = torch.Tensor
 
@@ -54,11 +55,11 @@ class TestOptimizer:
                 constraints,
                 optimizer,
             ) = self.setup_rosenbrock(constrained=constrained)
-            optimizer.optimize(maxiter=10000)
+            res = optimizer.optimize(maxiter=10000)
             assert_array_almost_equal(
                 optimizer.variables_tensor.detach(),
                 model.objective_function.minimizer.detach(),
-                decimal=2.5 if constrained else 5,
+                decimal=2.5 if constrained else 6,
                 err_msg="Failed for constrained = %d" % int(constrained),
             )
 
@@ -81,5 +82,5 @@ class TestOptimizer:
 
 
 if __name__ == "__main__":
-    # TestOptimizer().test_optimize()
-    TestOptimizer().test_gradients()
+    TestOptimizer().test_optimize()
+    # TestOptimizer().test_gradients()

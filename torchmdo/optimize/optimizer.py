@@ -341,7 +341,8 @@ class Optimizer:
         maxiter: int = 1000,
         display_step: int = 50,
         keep_feasible: bool = False,
-        options: Optional[Dict] = None,
+        use_finite_diff: bool = False,
+        **optimizer_options
     ) -> Optional[OptimizeResult]:
         """
         Optimize the objective, subject to constraints
@@ -352,7 +353,11 @@ class Optimizer:
                 message to monitor the procedure.
             keep_feasible: whether the optimizer should attempt to keep the optimization
                 trajectory in a feasible region. Default: `False`.
-            options: additional optimization options from scipy's `trust-constr`
+            use_finite_diff: if True, will approximate gradients using finite
+                differences rather than using pytorch's automatic differentiation.
+                This will result in less accurate gradients and slower computation
+                but can be useful for debugging.
+            optimizer_options: additional optimization options from scipy's `trust-constr`
                 implementation. See 
                 `here <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html>`_.
         """
@@ -370,7 +375,7 @@ class Optimizer:
             constraint_lb, constraint_ub = self.constraint_bounds_tensor
             constraints = NonlinearConstraint(
                 fun=self.constraint_fun,
-                jac=self.constraint_jac,
+                jac=self.constraint_jac if not use_finite_diff else "2-point",
                 lb=constraint_lb,
                 ub=constraint_ub,
                 keep_feasible=keep_feasible,
@@ -388,7 +393,7 @@ class Optimizer:
         try:
             res = minimize(
                 fun=self.objective_fun,
-                jac=self.objective_grad,
+                jac=self.objective_grad if not use_finite_diff else None,
                 hess=csr_matrix((x0.numel(),) * 2)
                 if self.outputs[self.objective_index].linear
                 else None,
@@ -396,7 +401,7 @@ class Optimizer:
                 bounds=[bound for bound in zip(*self.variable_bounds_tensor)],
                 method="trust-constr",
                 constraints=constraints,
-                options=dict(maxiter=maxiter, **({} if options is None else options)),
+                options=dict(maxiter=maxiter, **optimizer_options),
                 callback=(
                     (lambda xk, res: self.callback(xk, res))
                     if display_step < maxiter
@@ -442,8 +447,9 @@ class Optimizer:
         at the current setting of the design variables.
 
         Returns:
-            The error in the objective gradient and
-            the error in the constraint jacobian, respectively.
+            A scalar tensor that gives the error in the objective gradient and
+            a 1D tensor that gives the error in each row of the the constraint 
+            jacobian, respectively.
         """
         # check the objective gradient
         objective_grad_error = check_grad(
