@@ -11,7 +11,7 @@ from pdb import set_trace
 Tensor = torch.Tensor
 
 
-class RosenbrockModel(torchmdo.ComputeObject):
+class RosenbrockModel(torchmdo.Model):
     def __init__(self, x: Tensor):
         self.x = x
         self.objective_function = Rosenbrock(dim=self.x.numel())

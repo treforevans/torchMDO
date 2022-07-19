@@ -5,7 +5,7 @@ from typing import Union, Optional, List
 from functools import cached_property
 from warnings import warn
 from ..utils import is_broadcastable
-from ..model import ComputeObject
+from ..model import Model
 
 Tensor = torch.Tensor
 as_tensor = torch.as_tensor
@@ -40,7 +40,7 @@ class InputOutput:
                 self.lower <= self.upper
             ), "Lower bound is greater than upper bound."
 
-    def extract_val(self, compute_object: ComputeObject):
+    def extract_val(self, compute_object: Model):
         """
         extract value from a compute object
 
@@ -158,7 +158,7 @@ class Constraint(Output):
     Specifies an equality or inequality constraint to be used for optimization.
     
     Args:
-        name: the name of an attribute in a :class:`~.ComputeObject` that will be 
+        name: the name of an attribute in a :class:`~.Model` that will be 
             used as a constraint for optimization.
         lower: if specified, this output will be constrained
             as an inequality constraint such that the output value must be 
@@ -192,7 +192,7 @@ class Minimize(Objective):
     Specifies an objective to be minimized during optimization.
     
     Args:
-        name: the name of an attribute in a :class:`~.ComputeObject` that will be 
+        name: the name of an attribute in a :class:`~.Model` that will be 
             minimized during optimization.
         linear: if True then this objective will be treated as
             linear in the design variables
@@ -209,7 +209,7 @@ class Maximize(Objective):
     Specifies an objective to be maximized during optimization.
     
     Args:
-        name: the name of an attribute in a :class:`~.ComputeObject` that will be 
+        name: the name of an attribute in a :class:`~.Model` that will be 
             maximized during optimization.
         linear: if True then this objective will be treated as
             linear in the design variables
@@ -226,12 +226,12 @@ class DesignVariable(InputOutput):
     Specifies a design variable, along with input bounds for that variable, if any.
     
     Args:
-        name: the name of an attribute in a :class:`~.ComputeObject` that will 
+        name: the name of an attribute in a :class:`~.Model` that will 
             be used as a design variable for optimization.
         value: if specified, this value will be used as an
             initial value of this design variable for optimization.
             If not specified, then the value of the attribute stored in 
-            the :class:`~.ComputeObject` with the same `name` will be used as the 
+            the :class:`~.Model` with the same `name` will be used as the 
             initial value of this design variable for optimization.
         lower: if specified, this design variable will
             have a lower bound given by this value.

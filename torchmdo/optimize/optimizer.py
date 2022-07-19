@@ -20,7 +20,7 @@ from .input_output import (
     Minimize,
     Maximize,
 )
-from ..model import ComputeObject
+from ..model import Model
 
 logger = getLogger(__name__)
 Tensor = torch.Tensor
@@ -49,12 +49,12 @@ class Optimizer:
         initial_design_variables: List[DesignVariable],
         objective: Union[Minimize, Maximize],
         constraints: List[Constraint],
-        compute_object: ComputeObject,
+        compute_object: Model,
         vectorize_constraint_jac: bool = False,
     ):
         self.vectorize_constraint_jac = bool(vectorize_constraint_jac)
         # check compute_object
-        assert isinstance(compute_object, ComputeObject)
+        assert isinstance(compute_object, Model)
         self.compute_object = compute_object
         # check outputs
         assert isinstance(objective, (Minimize, Maximize))
@@ -67,7 +67,7 @@ class Optimizer:
             assert isinstance(idv, DesignVariable)
             if not hasattr(self.compute_object, idv.name):
                 raise KeyError(
-                    "Name '%s' of the design variable does not match an attribute in the ComputeObject"
+                    "Name '%s' of the design variable does not match an attribute in the Model"
                     % idv.name
                 )
             # if the initial value of the design variable is not set then extract it
@@ -110,7 +110,7 @@ class Optimizer:
     @variables_object.setter
     def variables_object(self, design_variables: List[DesignVariable]) -> None:
         """
-        Set the design variables to the specified values in the ComputeObject.
+        Set the design variables to the specified values in the Model.
         """
         for dv in design_variables:
             # make sure design variables are of the correct type

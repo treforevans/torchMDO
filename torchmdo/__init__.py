@@ -1,5 +1,5 @@
 from . import fea, lifting_line, optimize, model
-from .model import ComputeObject
+from .model import Model
 from .optimize import Optimizer, DesignVariable, Constraint, Minimize, Maximize
 import torch
 from sys import stdout

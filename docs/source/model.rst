@@ -8,5 +8,5 @@ torchmdo.model
 Compute Object
 ---------------------------------------
 
-.. autoclass:: ComputeObject
+.. autoclass:: Model
    :members: compute

@@ -5,7 +5,7 @@ Tensor = torch.Tensor
 as_tensor = torch.as_tensor
 
 
-class ComputeObject(ABC):
+class Model(ABC):
     """
     Base class that must be inherited to construct a compute object for use in
     optimization.
