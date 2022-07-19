@@ -1,9 +1,10 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import itertools
 import os.path
 import codecs
+from pathlib import Path
 
-
+# define functions to read the package version
 def read(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
     with codecs.open(os.path.join(here, rel_path), "r") as fp:
@@ -19,6 +20,11 @@ def get_version(rel_path):
         raise RuntimeError("Unable to find version string.")
 
 
+# read the contents of the README file
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
+
 install_requires = [
     "gpytorch~=1.7.0",
     "numpy~=1.23.0",
@@ -27,7 +33,7 @@ install_requires = [
 ]
 extras_require = dict(
     examples=["matplotlib",],
-    dev=["black", "twine", "pytest",],
+    dev=["black", "twine", "pytest", "check-manifest"],
     docs=[
         "ipython",
         "ipykernel",
@@ -43,20 +49,25 @@ setup(
     name="torchmdo",
     version=get_version(os.path.join("torchmdo", "__init__.py")),
     description="Multidisciplinary design optimization made fast with PyTorch and modern automatic differentiation.",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     author="Trefor Evans",
     author_email="trefor@infera.ai",
-    packages=["torchmdo"],
+    url="https://github.com/treforevans/torchmdo",
+    project_urls={
+        # "Documentation": "",
+        "Source": "https://github.com/treforevans/torchmdo",
+    },
+    packages=find_packages(exclude=["test", "test.*"]),
     zip_safe=True,
     license="AGPL-3.0-or-later",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Programming Language :: Python :: 3",
+    ],
+    python_requires=">=3.7",
     install_reqires=install_requires,
     extras_require=extras_require,
-    keywords=[
-        "optimization",
-        "MDO",
-        "engineering",
-        "design",
-        "pytorch",
-        "aerodynamics",
-        "FEA",
-    ],
+    keywords=["Optimization", "Engineering", "Design", "Aerodynamics", "FEA",],
+    test_suite="test",
 )

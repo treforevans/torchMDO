@@ -1,9 +1,14 @@
 ## Docs
+
+- [ ] put a simple example in the readme to show the basic usage of the package.
+      Maybe create a 2D constrained optimization problem with a
+      Rosenbrock objective (such as [this](https://bit.ly/3AVCIUY)).
 - [ ] Add readme to docs, may need to convert to rst
 - [ ] Nbsphinx to include the ipython notebooks
 - [x] Figure out how to only add some class methods to sphinx
 
 ## Optimizer
+
 - [x] add an `Objective` class with `Minimize`, `Maximize` subclasses that can be used to directly specify the objective.
 - [x] implement a switch to turn pytorch gradients on or off for testing/comparison in `optimize`.
 - [ ] add a way to specify a callback function (e.g. for plotting)
@@ -14,6 +19,7 @@
   - [ ] consider adding a `FindFeasible` objective
 
 ## Examples
+
 - [x] aerodynamic planform optimization of a wing -> elliptical
 - [ ] aerostructural optimization of a wing
 - [ ] implement constrained problems from [this paper](https://arxiv.org/abs/2002.08526) in appendix G such as:

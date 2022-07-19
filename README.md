@@ -1,39 +1,41 @@
 # torchMDO
+
 Multidisciplinary design optimization made fast with PyTorch and modern automatic differentiation.
 
-At its heart, torchmdo is a library of optimizers and tools that allow you to build out large-scale 
-model to assess a design in PyTorch (with its Numpy-like syntax) and to optimize the design extremely quickly by taking
-advantage of the automatic differentiation capabilities provided by PyTorch.
+At its heart, torchMDO is a library of optimizers and tools that allow you to build out large-scale
+models to assess a design in PyTorch (with its Numpy-like syntax) and to optimize the design extremely quickly by taking
+advantage of its automatic differentiation capabilities as well as its GPU acceleration.
 
-- [torchMDO](#torchmdo)
-  - [Installation](#installation)
-  - [Usage](#usage)
-  - [Examples](#examples)
-    - [Aerodynamic optimization of a wing planform](#aerodynamic-optimization-of-a-wing-planform)
-  - [Performance](#performance)
-  - [Other useful packages](#other-useful-packages)
+Also, if you have a model that has previously been built in Python, you can convert it to PyTorch (which is
+typically straightforward if it was originally implemented in Numpy) and
+you can immediately plug it into torchMDO.
+
+<!--
+Article about converting from numpy that may be worthwhile:
+https://pytorch.org/blog/torch-linalg-autograd/
+-->
 
 ## Installation
 
-For development, run
+Install using pip:
 
+```bash
+# minimal install:
+pip install git+https://github.com/treforevans/torchmdo.git
+# or to be able to run the tutorials:
+pip install git+https://github.com/treforevans/torchmdo.git[examples]
+```
+
+<!--
+For development, run
 ```bash
 pip install -e .[examples,dev]
 ```
+-->
 
-Confirm setup by running tests as follows:
+## Tutorials
 
-```bash
-pytest
-```
-
-## Usage
-
-_TODO: put a simple example here to show the basic usage of the package._
-_Maybe create a 2D constrained optimization problem with a_
-_Rosenbrock objective (such as [this](https://bit.ly/3AVCIUY))._
-
-## Examples
+_More coming soon._
 
 ### Aerodynamic optimization of a wing planform
 
@@ -45,11 +47,12 @@ _Rosenbrock objective (such as [this](https://bit.ly/3AVCIUY))._
 
 [IPython notebook](./examples/wing_aerodynamic_optimization.ipynb)
 
-In this simple example, we consider a 50-dimensional nonlinear constrained optimization problem to optimize the shape 
+In this simple example, we consider a 50-dimensional nonlinear constrained optimization problem to optimize the shape
 of a wing to minimize induced drag, subject to a wing-area equality constraint.
 We also compare the performance of modern automatic differentiation to the use of (classical) finite-difference
 methods.
 
+<!--
 ## Performance
 
 The gradient computation time will be proportional to the number of constraints but is effectively
@@ -59,10 +62,15 @@ In contrast, gradient computations using finite difference methods scale indepen
 constraints but scale proportionally to the number of design variables, making them poorly suited to
 high-dimensional real-world problems.
 Finite-difference gradients are also approximated and can suffer from loss of precision.
+-->
 
+<!--
 ## Other useful packages
+I've listed here some other useful packages that might be helpful to build out a
+model in PyTorch.
 
 - [`torch_interpolations`](https://github.com/sbarratt/torch_interpolations)
 - [`torch_cg`](https://github.com/sbarratt/torch_cg)
 - [`deq`](https://github.com/locuslab/deq) for differentiating through non-linear solvers
 - [`torchdiffeq`](https://github.com/rtqichen/torchdiffeq) for differentiating through ODE solvers
+- -->
