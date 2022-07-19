@@ -21,9 +21,9 @@ Install using pip:
 
 ```bash
 # minimal install:
-pip install git+https://github.com/treforevans/torchmdo.git
+pip install torchmdo
 # or to be able to run the tutorials:
-pip install git+https://github.com/treforevans/torchmdo.git[examples]
+pip install torchmdo[examples]
 ```
 
 <!--
