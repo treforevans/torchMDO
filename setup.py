@@ -21,7 +21,7 @@ def get_version(rel_path):
 setup(
     name="torchmdo",
     version=get_version(os.path.join("torchmdo", "__init__.py")),
-    description="Multidisciplinary design optimization tools in PyTorch.",
+    description="Multidisciplinary design optimization made fast with PyTorch and modern automatic differentiation.",
     author="Trefor Evans",
     author_email="trefor@infera.ai",
     packages=["torchmdo"],
@@ -42,4 +42,13 @@ setup(
             "sphinx-autodoc-typehints",
         ]
     ),
+    keywords=[
+        "optimization",
+        "MDO",
+        "engineering",
+        "design",
+        "pytorch",
+        "aerodynamics",
+        "FEA",
+    ],
 )

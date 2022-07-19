@@ -21,7 +21,9 @@ class TestLiftingLine:
         chords = torch.zeros_like(spanwise_loc) + c
         alpha_sections = torch.zeros_like(spanwise_loc) + 0.5 * torch.pi / 180
         alpha_0s = torch.zeros_like(spanwise_loc) - 0.3 * torch.pi / 180
-        wing = LiftingLineWing(spanwise_loc, chords, alpha_sections, alpha_0s, AR)
+        wing = LiftingLineWing(
+            spanwise_loc, chords, alpha_sections, alpha_0s, span=b, wing_area=b * c
+        )
         print("aspect ratio:", AR)
 
         # Compute lift distribution for given CL

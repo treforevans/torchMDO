@@ -3,26 +3,31 @@ from typing import Tuple
 from pdb import set_trace
 
 Tensor = torch.Tensor
+as_tensor = torch.as_tensor
 
 
 class LiftingLineWing:
     """
     Lifting-line model of an aircraft wing.
     This is used to compute the lift distribution and induced drag over a straight wing.
-    Note that only the specifications for half of the wing should be provided.
+    Note that only the specifications for half of the wing should be provided unless
+    otherwise noted.
 
     Args:
-        spanwise_loc : shape (m,) spanwise locations of the m wing segments. The root is 
+        spanwise_loc : shape `(n_elem,)` spanwise locations of the `n_elem` 
+            wing segments. The root is 
             considered to be zero and the node is the half-wing span.
             We assume symmetrical loading so this should just be points 
             from one half of wing.
-        chords : shape (m,) chord of each wing segment
-        alpha_sections : shape (m,) AoA (in rad) of each wing segment assuming zero 
+            You should also not place a node at the root, i.e. the tensor
+            should not contain a zero. This will raise an error.
+        chords : shape `(n_elem,)` chord of each wing segment.
+        alpha_sections : shape `(n_elem,)` AoA (in rad) of each wing segment assuming zero 
             aircraft AoA.
-        alpha_0s : shape (m,) zero lift AoA (in rad) of each wing segment assuming zero 
+        alpha_0s : shape `(n_elem,)` zero lift AoA (in rad) of each wing segment assuming zero 
             aircraft AoA.
-        AR : aspect ratio of the wing given by :math:`b^2/S` where `b` is the span and 
-            `S` is the wing area.
+        span: full span of the aircraft (i.e. both halves of the wing).
+        wing_area: full wing area of the aircraft (i.e. both halves of the wing).
     """
 
     def __init__(
@@ -31,15 +36,18 @@ class LiftingLineWing:
         chords: Tensor,
         alpha_sections: Tensor,
         alpha_0s: Tensor,
-        AR: Tensor,
+        span: Tensor,
+        wing_area: Tensor,
     ):
         # internalize variables
-        self.m = torch.numel(spanwise_loc)
+        self.n_elem = torch.numel(spanwise_loc)
         self.spanwise_loc = torch.atleast_1d(spanwise_loc)
         self.chords = torch.atleast_1d(chords)
         self.alpha_sections = torch.atleast_1d(alpha_sections)
         self.alpha_0s = torch.atleast_1d(alpha_0s)
-        self.AR = AR
+        self.span = as_tensor(span)
+        self.wing_area = as_tensor(wing_area)
+        self.AR = torch.square(self.span) / self.wing_area
         assert (
             self.spanwise_loc.shape
             == self.chords.shape
@@ -54,7 +62,6 @@ class LiftingLineWing:
         ), "spanwise loc should be unique and sorted"
         assert torch.all(self.chords > 0)
         assert torch.all(self.alpha_0s <= 0), "assuming lifting airfoils, check input"
-        self.span = 2.0 * self.spanwise_loc[-1]
         # perform change of variables
         self.spanwise_thetas = torch.arccos(-self.spanwise_loc * 2.0 / self.span)
         assert (
@@ -62,22 +69,12 @@ class LiftingLineWing:
             and self.spanwise_thetas.max() <= torch.pi
         ), "sanity check"
         # setup and factorize linear system `Ax = b`` (notebook Apr 24, 2020)
-        # include only odd n values. Also I want one less coefficient than m since
+        # include only odd n values. Also I want one less coefficient than n_elem since
         # aircraft AoA unknown.
-        self.ns = torch.arange(start=3, end=self.m * 2 + 1, step=2)
+        self.ns = torch.arange(start=3, end=self.n_elem * 2 + 1, step=2)
         ns = self.ns.reshape((1, -1))  # reshape for broadcasting
         thetas = self.spanwise_thetas.reshape((-1, 1))  # reshape for broadcasting
-        # self.A_sys = torch.hstack( # DEBUG
-        #     [
-        #         -torch.ones((self.m, 1)),  # contribution of aircraft AoA
-        #         torch.sin(ns * thetas)
-        #         * (
-        #             2.0 * self.span / (torch.pi * self.chords.reshape((-1, 1)))
-        #             + ns / torch.sin(thetas)
-        #         ),
-        #     ]
-        # )
-        self.A_sys = torch.zeros((self.m,) * 2)
+        self.A_sys = torch.zeros((self.n_elem,) * 2)
         self.A_sys[:, 0] = -1.0  # contribution of aircraft AoA
         self.A_sys[:, 1:] = torch.sin(ns * thetas) * (
             2.0 * self.span / (torch.pi * self.chords.reshape((-1, 1)))

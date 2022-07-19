@@ -469,6 +469,10 @@ class Optimizer:
         ]
         return as_tensor(objective_grad_error), as_tensor(constraints_jac_error)
 
+    def reset_design_variables(self) -> None:
+        """ reset the design variables to their initial value. """
+        self.variables_object = self.initial_design_variables
+
     def __str__(self):
         string = ""
         # print all design variables
