@@ -11,16 +11,11 @@ Also, if you have a model that has previously been built in Python, you can conv
 typically straightforward if it was originally implemented in Numpy) and
 you can immediately plug it into torchMDO.
 
-.. image:: https://github.com/treforevans/torchMDO/raw/main/examples/wing_aerodynamic_optimization.gif
-
-Online documentation:
-    https://torchmdo.readthedocs.io/
-
 Examples
 --------
 
 `Aerodynamic optimization of a wing planform <https://torchmdo.readthedocs.io/en/latest/examples/wing_aerodynamic_optimization.html>`_
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. raw:: html
 
@@ -35,7 +30,7 @@ of a wing to minimize induced drag, subject to a wing-area equality constraint.
 We also compare the performance of modern automatic differentiation to the use of (classical) finite-difference
 methods.
 
-Installation:
+Installation
 -------------
 Install using pip::
 
@@ -45,6 +40,12 @@ Install using pip::
 To upgrade to the latest (unstable) version, run::
 
     pip install --upgrade git+https://github.com/treforevans/torchmdo.git
+
+Documentation
+-------------
+
+Online documentation:
+    https://torchmdo.readthedocs.io/
 
 Source code repository (and issue tracker):
     https://github.com/treforevans/torchmdo/
