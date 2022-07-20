@@ -70,7 +70,7 @@ setup(
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.8",
     install_reqires=install_requires,
     extras_require=extras_require,
     keywords=["Optimization", "Engineering", "Design", "Aerodynamics", "FEA",],
