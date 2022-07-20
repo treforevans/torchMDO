@@ -27,9 +27,10 @@ pip install torchmdo[examples]
 ```
 
 <!--
-For development, run
+For development, run one of the following
 ```bash
 pip install -e .[examples,dev]
+pip install -e .[all]
 ```
 -->
 
