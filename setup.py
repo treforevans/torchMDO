@@ -22,7 +22,7 @@ def get_version(rel_path):
 
 # read the contents of the README file
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+long_description = (this_directory / "README.rst").read_text()
 
 # define essential requirements
 install_requires = [
@@ -55,7 +55,7 @@ setup(
     version=get_version(os.path.join("torchmdo", "__init__.py")),
     description="Multidisciplinary design optimization made fast with PyTorch and modern automatic differentiation.",
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type="text/x-rst",
     author="Trefor Evans",
     author_email="trefor@infera.ai",
     url=url_github,
