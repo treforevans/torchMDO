@@ -84,8 +84,8 @@ with open((this_directory / "docs" / "requirements.txt"), "w") as the_file:
     )
     # add my current package as a requirement (from github)
     the_file.write("git+%s.git\n" % url_github)
-    # add other requirements
-    for requirement in extras_require["docs"]:
+    # add all other requirements for documentation
+    for requirement in install_requires + extras_require["docs"]:
         the_file.write("%s\n" % requirement)
 
 
