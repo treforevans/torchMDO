@@ -11,6 +11,8 @@ Also, if you have a model that has previously been built in Python, you can conv
 typically straightforward if it was originally implemented in Numpy) and
 you can immediately plug it into torchMDO.
 
+.. image:: https://github.com/treforevans/torchMDO/raw/main/examples/wing_aerodynamic_optimization.gif
+
 Online documentation (and examples):
     https://torchmdo.readthedocs.io/
 
@@ -29,3 +31,11 @@ Source code repository (and issue tracker):
 
 License:
     AGPL-3.0-or-later -- see the file ``LICENSE`` for details.
+
+.. raw:: html
+
+    <img 
+    align="right" 
+    style="width: 500px; height: auto; object-fit: contain" 
+    hspace="10" 
+    src="https://github.com/treforevans/torchMDO/raw/main/examples/wing_aerodynamic_optimization.gif">
