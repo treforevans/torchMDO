@@ -13,24 +13,14 @@ you can immediately plug it into torchMDO.
 
 .. image:: https://github.com/treforevans/torchMDO/raw/main/examples/wing_aerodynamic_optimization.gif
 
-Online documentation (and examples):
+Online documentation:
     https://torchmdo.readthedocs.io/
 
-Installation:
-    Install using pip::
+Examples
+--------
 
-        pip install torchmdo # minimal install
-        pip install torchmdo[examples] # to be able to run the examples
-
-    To upgrade to the latest (unstable) version, run::
-
-        pip install --upgrade git+https://github.com/treforevans/torchmdo.git
-
-Source code repository (and issue tracker):
-    https://github.com/treforevans/torchmdo/
-
-License:
-    AGPL-3.0-or-later -- see the file ``LICENSE`` for details.
+`Aerodynamic optimization of a wing planform <https://torchmdo.readthedocs.io/en/latest/examples/wing_aerodynamic_optimization.html>`_
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. raw:: html
 
@@ -39,3 +29,26 @@ License:
     style="width: 500px; height: auto; object-fit: contain" 
     hspace="10" 
     src="https://github.com/treforevans/torchMDO/raw/main/examples/wing_aerodynamic_optimization.gif">
+
+In this simple example, we consider a 50-dimensional nonlinear constrained optimization problem to optimize the shape
+of a wing to minimize induced drag, subject to a wing-area equality constraint.
+We also compare the performance of modern automatic differentiation to the use of (classical) finite-difference
+methods.
+
+Installation:
+-------------
+Install using pip::
+
+    pip install torchmdo # minimal install
+    pip install torchmdo[examples] # to be able to run the examples
+
+To upgrade to the latest (unstable) version, run::
+
+    pip install --upgrade git+https://github.com/treforevans/torchmdo.git
+
+Source code repository (and issue tracker):
+    https://github.com/treforevans/torchmdo/
+
+License:
+    AGPL-3.0-or-later -- see the file ``LICENSE`` for details.
+
