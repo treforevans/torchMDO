@@ -11,7 +11,7 @@ Also, if you have a model that has previously been built in Python, you can conv
 typically straightforward if it was originally implemented in Numpy) and
 you can immediately plug it into torchMDO.
 
-Online documentation (and example of use):
+Online documentation (and examples):
     https://torchmdo.readthedocs.io/
 
 Installation:
