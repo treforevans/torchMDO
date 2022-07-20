@@ -22,6 +22,7 @@
 
 - [x] aerodynamic planform optimization of a wing -> elliptical
 - [ ] aerostructural optimization of a wing
+- [ ] consider aero shape optimization from doublet or other potential flow
 - [ ] implement constrained problems from [this paper](https://arxiv.org/abs/2002.08526) in appendix G such as:
   - 60D rover trajectory planning
   - 124D vehicle design with 68 constraints

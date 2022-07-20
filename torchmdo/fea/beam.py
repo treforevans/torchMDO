@@ -132,29 +132,6 @@ class BeamFEA(BaseFEA):
         displacements = self.dof_vec2arr(displacements)  # convert back to array form
         return displacements
 
-    def get_max_strain(self, displacements: Tensor) -> Tensor:
-        """
-        Computes the maximum strain across the beam cross-section.
-        Note that this can only be used if `thicknesses` were specified.
-
-        Args:
-            displacements: displacements as returned by :func:`BeamFEA.get_displacements`.
-        
-        Returns:
-            The max strain on each beam section which is of shape `(n_elems,)`
-        """
-        assert displacements.shape == (self.n_elems + 1, 2)
-        assert self.thicknesses is not None
-
-        # calculate curvature = d theta / ds
-        theta = displacements[:, 1]
-        dtheta = torch.diff(theta)
-        curvature = dtheta / self.lengths
-
-        # max axial strain
-        maxStrain = -1 * curvature * self.thicknesses / 2
-        return maxStrain
-
     def global_stiffness_matrix(self) -> Tensor:
         """
         Assembles the global stiffness matrix as a lower band as used by

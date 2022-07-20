@@ -71,3 +71,11 @@ setup(
     keywords=["Optimization", "Engineering", "Design", "Aerodynamics", "FEA",],
     test_suite="test",
 )
+
+"""
+To update new version on pip:
+```
+python -m build
+python -m twine upload --skip-existing dist/*
+```
+"""

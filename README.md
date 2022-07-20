@@ -35,7 +35,6 @@ pip install -e .[examples,dev]
 
 ## Tutorials
 
-_More coming soon._
 
 ### Aerodynamic optimization of a wing planform
 

@@ -146,39 +146,8 @@ class TestUniformlyLoadedCantileveredBeam:
             plt.plot([0, 1], [0, 0], "k")
             plt.ylabel("deflected position")
 
-    def test_max_strain(self, to_plot=False):
-        """ informal test where the max strain is evaluated and plotted. """
-        torch.manual_seed(0)
-        EI = max(torch.rand(()), 1e-4)  # type: ignore
-        L = 0.9
-        q = 1.2
-        n_elems = 100
-
-        fea = BeamFEA(
-            lengths=Tensor([L / n_elems,] * n_elems),
-            EIs=Tensor([EI,] * n_elems),
-            fixed_rotation=torch.as_tensor(
-                [True,] + [False,] * n_elems, dtype=torch.bool
-            ),
-            fixed_translation=torch.as_tensor(
-                [True,] + [False,] * n_elems, dtype=torch.bool
-            ),
-            thicknesses=Tensor(torch.linspace(0.05, 0.02, n_elems)),
-        )
-        displacements = fea.get_displacements(uniform_loads=Tensor([q,] * n_elems))
-        maxStrain = fea.get_max_strain(displacements)
-
-        # plot the deflection and strain
-        if to_plot:
-            plt.figure()
-            plt.plot(torch.linspace(0, 1, steps=n_elems + 1), -displacements[:, 0], "b")
-            plt.plot([0, 1], [0, 0], "k")
-            plt.plot(torch.linspace(0, 1, steps=n_elems), -maxStrain, "r")
-            plt.ylabel("deflected position and max strain")
-
 
 if __name__ == "__main__":
     # run the tests with figures to plot
     TestEndLoadedCantileveredBeam().test_multiple_beam_elements(to_plot=True)
     TestUniformlyLoadedCantileveredBeam().test_multiple_beam_elements(to_plot=True)
-    TestUniformlyLoadedCantileveredBeam().test_max_strain(to_plot=True)

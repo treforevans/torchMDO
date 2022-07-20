@@ -9,4 +9,4 @@ Beam FEA model
 ---------------------------------------
 
 .. autoclass:: BeamFEA
-   :members: get_displacements, get_max_strain
+   :members: get_displacements
