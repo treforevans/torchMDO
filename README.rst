@@ -52,4 +52,5 @@ Source code repository (and issue tracker):
 
 License:
     AGPL-3.0-or-later -- see the file ``LICENSE`` for details.
+    Please `contact <mailto:trefor@infera.ai>`_ for inquiries about licensing.
 

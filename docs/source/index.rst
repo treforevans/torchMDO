@@ -1,8 +1,5 @@
 :github_url: https://github.com/treforevans/torchmdo
 
-torchMDO
-========
-
 .. include:: ../../README.rst
 
 .. toctree::
