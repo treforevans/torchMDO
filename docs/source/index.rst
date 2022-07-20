@@ -10,14 +10,14 @@ torchmdo's documentation
 .. toctree::
    :glob:
    :maxdepth: 1
-   :caption: Tutorials:
+   :caption: Examples and Tutorials:
 
    examples/wing_aerodynamic_optimization.ipynb
 
 .. toctree::
    :glob:
    :maxdepth: 1
-   :caption: Package Reference
+   :caption: Package reference
 
    optimize
    model
