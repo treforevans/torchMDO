@@ -5,7 +5,7 @@ torchmdo.model
 .. automodule:: torchmdo.model
 .. currentmodule:: torchmdo.model
 
-Compute Object
+Computational model
 ---------------------------------------
 
 .. autoclass:: Model

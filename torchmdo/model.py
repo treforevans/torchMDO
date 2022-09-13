@@ -7,7 +7,7 @@ as_tensor = torch.as_tensor
 
 class Model(ABC):
     """
-    Base class that must be inherited to construct a compute object for use in
+    Base class that must be inherited to construct a model for use in
     optimization.
     """
 

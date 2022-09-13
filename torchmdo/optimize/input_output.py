@@ -42,7 +42,7 @@ class InputOutput:
 
     def extract_val(self, model: Model):
         """
-        extract value from a compute object
+        extract value from a model.
 
         Args:
             model: object to extract value from.

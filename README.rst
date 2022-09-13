@@ -14,8 +14,8 @@ you can immediately plug it into torchMDO.
 Examples
 --------
 
-`Aerodynamic optimization of a wing planform <https://torchmdo.readthedocs.io/en/latest/examples/wing_aerodynamic_optimization.html>`_
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`Aerodynamic shape optimization of a wing's planform <https://torchmdo.readthedocs.io/en/latest/examples/wing_aerodynamic_optimization.html>`_
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. raw:: html
 

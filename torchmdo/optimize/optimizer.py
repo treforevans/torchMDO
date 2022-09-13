@@ -62,7 +62,7 @@ class Optimizer:
             assert isinstance(out, Constraint)
         self.outputs = cast(List[Output], [objective, *constraints])
         self.objective_index = 0  # is always the first one
-        # check to make sure that the compute object has all of the design variables attributes
+        # check to make sure that the model has all of the design variables attributes
         for idv in initial_design_variables:
             assert isinstance(idv, DesignVariable)
             if not hasattr(self.model, idv.name):
@@ -71,14 +71,14 @@ class Optimizer:
                     % idv.name
                 )
             # if the initial value of the design variable is not set then extract it
-            # from the compute object
+            # from the model
             if idv.value is None:
                 assert getattr(self.model, idv.name) is not None, (
                     "No initial value found for design variable '%s'" % idv.name
                 )
                 idv.extract_val(model=self.model)
         self.initial_design_variables = initial_design_variables
-        # set parameters in the compute object to the initial design variables
+        # set parameters in the model to the initial design variables
         self.variables_object = self.initial_design_variables
         # do a sanity check to make sure the reconstructed desgin variables are the same
         for (original, reconstructed) in zip(
@@ -138,7 +138,7 @@ class Optimizer:
         ):
             # if any value changed, or if the previous computation was done without
             # `requires_grad` and it is now required,
-            # then update the compute object with the new variables
+            # then update the model with the new variables
             i_cur = 0  # current variable index
             for idv in self.initial_design_variables:
                 setattr(
