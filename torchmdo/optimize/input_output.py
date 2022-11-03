@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from typing import Union, Optional, List
 from functools import cached_property
 from warnings import warn
+from pdb import set_trace
 from ..utils import is_broadcastable
 from ..model import Model
 
@@ -48,6 +49,11 @@ class InputOutput:
             model: object to extract value from.
         """
         self.value = as_tensor(getattr(model, self.name))
+        # if self.value is not None and not torch.isfinite(self.value):
+        #     raise ValueError(
+        #         "Extracted value %s is not finite. %s = %s"
+        #         % (self.name, self.name, self.value)
+        #     )
 
     @property
     def value_tensor(self) -> Tensor:
@@ -121,7 +127,13 @@ class InputOutput:
         """
         string = self.name + ": \n"  # ": (value, lower, upper, active)\n"
         numel = max(
-            max(numpy.size(self.lower), numpy.size(self.upper)), numpy.size(self.value),  # type: ignore
+            max(
+                torch.numel(self.lower) if self.lower is not None else 0,
+                torch.numel(self.upper),
+            )
+            if self.upper is not None
+            else 0,
+            torch.numel(self.value) if self.value is not None else 0,
         )
         lvu = numpy.zeros((numel, 4,))
         lvu[:, 0] = torch.nan if self.value is None else torch.ravel(self.value)

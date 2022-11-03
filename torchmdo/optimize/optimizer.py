@@ -16,7 +16,6 @@ from .input_output import (
     DesignVariable,
     Output,
     Constraint,
-    Objective,
     Minimize,
     Maximize,
 )
@@ -487,20 +486,21 @@ class Optimizer:
         self.variables_object = self.initial_design_variables
 
     def __str__(self):
-        string = ""
-        # print all design variables
-        string += "*" * 80 + "\n"
-        string += "DESIGN VARIABLES:   (value, lower, upper, active)\n"
-        string += "*" * 80 + "\n"
-        design_variables = self.variables_object
-        for dv in design_variables:
-            string += dv.__str__() + "\n"
+        with torch.no_grad():
+            string = ""
+            # print all design variables
+            string += "*" * 80 + "\n"
+            string += "DESIGN VARIABLES:   (value, lower, upper, active)\n"
+            string += "*" * 80 + "\n"
+            design_variables = self.variables_object
+            for dv in design_variables:
+                string += dv.__str__() + "\n"
 
-        # print all outputs
-        string += "*" * 80 + "\n"
-        string += "OUTPUTS:            (value, lower, upper, active)\n"
-        string += "*" * 80 + "\n"
-        for out in self.outputs:
-            string += out.__str__() + "\n"
-        return string
+            # print all outputs
+            string += "*" * 80 + "\n"
+            string += "OUTPUTS:            (value, lower, upper, active)\n"
+            string += "*" * 80 + "\n"
+            for out in self.outputs:
+                string += out.__str__() + "\n"
+            return string
 
