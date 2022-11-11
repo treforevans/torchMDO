@@ -398,7 +398,7 @@ class Optimizer:
             res = minimize(
                 fun=self.objective_fun,
                 jac=self.objective_grad if not use_finite_diff else None,
-                hess=csr_matrix((x0.numel(),) * 2)
+                hess=(lambda x, *args: csr_matrix((x0.numel(),) * 2))
                 if self.outputs[self.objective_index].linear
                 else None,
                 x0=x0,
