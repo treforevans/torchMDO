@@ -2,6 +2,7 @@ import torch
 import gpytorch
 from torch_interpolations import RegularGridInterpolator
 from pdb import set_trace
+from typing import Optional
 
 Tensor = torch.Tensor
 
@@ -13,6 +14,7 @@ class InterpND(gpytorch.models.ExactGP):
         y: Tensor,
         differentiability: int = 1,
         bounds_error: bool = True,
+        num_optim_iters: Optional[int] = None,
     ):
         # some checks
         assert x.ndim == y.ndim == 2
@@ -29,11 +31,13 @@ class InterpND(gpytorch.models.ExactGP):
         )
         # define likelihood
         likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
-            noise_constraint=gpytorch.constraints.GreaterThan(1e-6),
+            noise_constraint=gpytorch.constraints.Interval(
+                lower_bound=1e-6, upper_bound=1e-5
+            ),
             num_tasks=self.n_functions,
             has_task_noise=False,  # ensure it only has a single noise term
         )
-        likelihood.noise = 1e-5  # type:ignore
+        likelihood.noise = 0.99e-5  # type:ignore
         # initialize the model
         super().__init__(train_inputs=x, train_targets=y, likelihood=likelihood)
         self.mean_module = gpytorch.means.ConstantMean(
@@ -42,6 +46,9 @@ class InterpND(gpytorch.models.ExactGP):
         self.covar_module = gpytorch.kernels.MaternKernel(
             nu=differentiability - 0.5, batch_shape=torch.Size([self.n_functions])
         )
+        # perform hyperparam optimiztion if nessessary
+        if num_optim_iters is not None:
+            self.optimize_hyperparameters(x=x, y=y, num_iterations=num_optim_iters)
         # Get into evaluation (predictive posterior) mode
         self.eval()
         self.likelihood.eval()
@@ -71,6 +78,39 @@ class InterpND(gpytorch.models.ExactGP):
         only return the posterior mean.
         """
         return super().__call__(x).mean
+
+    def optimize_hyperparameters(
+        self, x: Tensor, y: Tensor, num_iterations: int = 100
+    ) -> None:
+        """ Find optimal model hyperparameters """
+        self.train()
+        self.likelihood.train()
+
+        # Use the adam optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.1)
+
+        # "Loss" for GPs - the marginal log likelihood
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(self.likelihood, self)
+
+        for i in range(num_iterations):
+            # Zero gradients from previous iteration
+            optimizer.zero_grad()
+            # Output from model
+            output = self.forward(x)
+            # Calc loss and backprop gradients
+            loss = -mll(output, y)
+            loss.backward()
+            print(
+                "Iter %d/%d - Loss: %.3f   lengthscale: %.3f   noise: %.3g"
+                % (
+                    i + 1,
+                    num_iterations,
+                    loss.item(),
+                    self.covar_module.lengthscale.item(),
+                    self.likelihood.noise.item(),
+                )
+            )
+            optimizer.step()
 
 
 class Interp1D(InterpND):
@@ -106,7 +146,10 @@ class Interp1D(InterpND):
         if self.differentiability != 1:
             return super().forward(x=x)
         else:
-            assert x.ndim == 2
+            if x.ndim == 1:
+                x = x.unsqueeze(dim=1)
+            else:
+                assert x.ndim == 2
             assert x.shape[1] == self.n_inputs
             # make sure we're not out of bounds
             if x.max() > self.x_max:
@@ -127,6 +170,6 @@ class Interp1D(InterpND):
         only return the posterior mean if we are using a GP.
         """
         if self.differentiability != 1:
-            return super().__call__(x).mean
+            return super().__call__(x)
         else:
             return self.forward(x)
