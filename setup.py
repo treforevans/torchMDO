@@ -30,6 +30,7 @@ install_requires = [
     "numpy~=1.23.0",
     "scipy~=1.9.0rc1",
     "torch~=1.12.0",
+    "torch_interpolations @ git+https://github.com/sbarratt/torch_interpolations.git",
 ]
 # define requirements for various uses
 extras_require = dict(
@@ -45,6 +46,8 @@ extras_require = dict(
     ],
 )
 extras_require["all"] = list(itertools.chain.from_iterable(extras_require.values()))
+# install_requires seems to get ignored when running `pip install -e .` so add to extras
+extras_require["all"] += install_requires
 
 # save the github repo
 url_github = "https://github.com/treforevans/torchmdo"

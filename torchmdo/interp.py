@@ -1,5 +1,6 @@
 import torch
 import gpytorch
+from torch_interpolations import RegularGridInterpolator
 from pdb import set_trace
 
 Tensor = torch.Tensor
@@ -80,8 +81,52 @@ class Interp1D(InterpND):
         differentiability: int = 1,
         bounds_error: bool = True,
     ):
-        super().__init__(
-            x=x, y=y, differentiability=differentiability, bounds_error=bounds_error
-        )
         assert x.shape[1] == 1
+        self.differentiability = differentiability
+        if differentiability != 1:
+            super().__init__(
+                x=x, y=y, differentiability=differentiability, bounds_error=bounds_error
+            )
+        else:
+            # we are performing linear interpolation in 1D
+            # some checks
+            assert x.ndim == y.ndim == 2
+            assert x.shape[0] == y.shape[0]
+            self.n_inputs = 1
+            # create a list of interpolators, one for each output in y
+            # TODO: computations would be far faster if we rewrite this to did the interpolation in one call
+            self.interp_list = [
+                RegularGridInterpolator(points=[x.squeeze(dim=1)], values=yi,)
+                for yi in y.T
+            ]
+            self.x_min = x.min()
+            self.x_max = x.max()
 
+    def forward(self, x: Tensor):
+        if self.differentiability != 1:
+            return super().forward(x=x)
+        else:
+            assert x.ndim == 2
+            assert x.shape[1] == self.n_inputs
+            # make sure we're not out of bounds
+            if x.max() > self.x_max:
+                raise ValueError("Trying to interpolate above the data bounds.")
+            elif x.min() < self.x_min:
+                raise ValueError("Trying to interpolate below the data bounds.")
+            # now make the prediction
+            return torch.cat(
+                [
+                    interp([x.squeeze(dim=1)]).unsqueeze(dim=1)
+                    for interp in self.interp_list
+                ],
+                dim=1,
+            )
+
+    def __call__(self, x: Tensor) -> Tensor:
+        """
+        only return the posterior mean if we are using a GP.
+        """
+        if self.differentiability != 1:
+            return super().__call__(x).mean
+        else:
+            return self.forward(x)
