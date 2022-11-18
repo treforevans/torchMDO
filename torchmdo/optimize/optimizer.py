@@ -6,7 +6,7 @@ from scipy.optimize import (
     OptimizeResult,
     check_grad,
 )
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, eye
 from logging import getLogger
 from typing import Union, Optional, List, Tuple, cast, Dict, Callable
 from warnings import warn
@@ -18,6 +18,7 @@ from .input_output import (
     Constraint,
     Minimize,
     Maximize,
+    NearestFeasible,
 )
 from ..model import Model
 
@@ -46,7 +47,7 @@ class Optimizer:
     def __init__(
         self,
         initial_design_variables: List[DesignVariable],
-        objective: Union[Minimize, Maximize],
+        objective: Union[Minimize, Maximize, NearestFeasible],
         constraints: List[Constraint],
         model: Model,
         vectorize_constraint_jac: bool = False,
@@ -56,7 +57,7 @@ class Optimizer:
         assert isinstance(model, Model)
         self.model = model
         # check outputs
-        assert isinstance(objective, (Minimize, Maximize))
+        assert isinstance(objective, (Minimize, Maximize, NearestFeasible))
         for out in constraints:
             assert isinstance(out, Constraint)
         self.outputs = cast(List[Output], [objective, *constraints])
@@ -172,12 +173,32 @@ class Optimizer:
         return lower, upper
 
     @property
+    def all_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
+        """ get the lower and upper bounds for all the ouputs """
+        lower = torch.cat(
+            [
+                out.lower_tensor.reshape(-1)
+                if not isinstance(out, NearestFeasible)
+                else -Tensor([float("inf")])
+                for out in self.outputs
+            ]
+        )
+        upper = torch.cat(
+            [
+                out.upper_tensor.reshape(-1)
+                if not isinstance(out, NearestFeasible)
+                else Tensor([float("inf")])
+                for out in self.outputs
+            ]
+        )
+        return lower, upper
+
+    @property
     def constraint_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
         """
         get bounds for all constrained outputs
         """
-        lower = torch.cat([out.lower_tensor.reshape(-1) for out in self.outputs])
-        upper = torch.cat([out.upper_tensor.reshape(-1) for out in self.outputs])
+        lower, upper = self.all_bounds_tensor
         return lower[self.constrained_output_mask], upper[self.constrained_output_mask]
 
     @cached_property
@@ -186,9 +207,7 @@ class Optimizer:
         Get a boolean tensor indicating which outputs are constrained.
         It is cached since this will never change throughout an optimization.
         """
-        # get the lower and upper bounds for the ouputs
-        lower = torch.cat([out.lower_tensor.reshape(-1) for out in self.outputs])
-        upper = torch.cat([out.upper_tensor.reshape(-1) for out in self.outputs])
+        lower, upper = self.all_bounds_tensor
         # determine which are constrained (has a finite lower and/or upper bound)
         return torch.logical_or(torch.isfinite(lower), torch.isfinite(upper))
 
@@ -225,11 +244,20 @@ class Optimizer:
 
             # extract the outputs
             for out in self.outputs:
-                out.extract_val(model=self.model)
+                if isinstance(out, NearestFeasible):
+                    if hasattr(self, "x0"):
+                        out.value = 0.5 * torch.sum(
+                            torch.square(self.variables_tensor - self.x0)
+                        )
+                else:
+                    out.extract_val(model=self.model)
 
     def objective_fun(self, x: Union[ndarray, Tensor]) -> Tensor:
         """ return the objective """
         x = as_tensor(x)
+        if isinstance(self.outputs[self.objective_index], NearestFeasible):
+            # then just compute the distance from the nearest point
+            return 0.5 * torch.sum(torch.square(x - self.x0))
         x.requires_grad = True
         self.variables_tensor = x
         self.compute()
@@ -252,6 +280,9 @@ class Optimizer:
         Compute the gradient of the objective with respect to the input x
         """
         x = as_tensor(x)
+        if isinstance(self.outputs[self.objective_index], NearestFeasible):
+            # then just compute the gradient of the distance from the nearest point
+            return x - self.x0
         x.requires_grad = True
         self.variables_tensor = x
         self.compute()
@@ -368,11 +399,17 @@ class Optimizer:
         self.display_step = display_step
         # compute the current iterate first. This is nessessary since we need to know the dimensions of all the outputs
         self.compute()
+
         logger.info(
-            "Initial objective: %.3f." % self.outputs[self.objective_index].value_tensor
+            "Initial objective: %.3f."
+            % (
+                self.outputs[self.objective_index].value_tensor
+                if not isinstance(self.outputs[self.objective_index], NearestFeasible)
+                else 0.0
+            )
         )
         logger.info("Beginning optimization.")
-        x0 = self.variables_tensor.detach()
+        self.x0 = self.variables_tensor.detach()
 
         # setup constraints
         if self.num_constraints > 0:
@@ -384,7 +421,7 @@ class Optimizer:
                 ub=constraint_ub,
                 keep_feasible=keep_feasible,
                 **(  # specify a Hessian of zero if all the constraints are linear
-                    dict(hess=lambda x, v: csr_matrix((x0.numel(),) * 2))
+                    dict(hess=lambda x, v: csr_matrix((self.x0.numel(),) * 2))
                     if self.constraints_are_all_linear
                     else {}
                 )
@@ -398,10 +435,14 @@ class Optimizer:
             res = minimize(
                 fun=self.objective_fun,
                 jac=self.objective_grad if not use_finite_diff else None,
-                hess=(lambda x, *args: csr_matrix((x0.numel(),) * 2))
+                hess=(lambda x, *args: csr_matrix((self.x0.numel(),) * 2))
                 if self.outputs[self.objective_index].linear
-                else None,
-                x0=x0,
+                else (
+                    (lambda x, *args: eye(self.x0.numel()))
+                    if isinstance(self.outputs[self.objective_index], NearestFeasible)
+                    else None
+                ),
+                x0=self.x0,
                 bounds=[bound for bound in zip(*self.variable_bounds_tensor)],
                 method="trust-constr",
                 constraints=constraints,
@@ -501,6 +542,7 @@ class Optimizer:
             string += "OUTPUTS:            (value, lower, upper, active)\n"
             string += "*" * 80 + "\n"
             for out in self.outputs:
-                string += out.__str__() + "\n"
+                if not isinstance(out, NearestFeasible):
+                    string += out.__str__() + "\n"
             return string
 

@@ -232,6 +232,16 @@ class Maximize(Objective):
     pass
 
 
+class NearestFeasible(Objective):
+    """
+    Finds the feasible point that is the closest to the initial optimization point
+    in terms of Euclidean distance.
+    """
+
+    def __init__(self):
+        pass
+
+
 @dataclass
 class DesignVariable(InputOutput):
     """

@@ -19,7 +19,7 @@
 - [ ] write a test with a linear objective (linear constraints are used in the wing design example)
 - [ ] consider adding the following objectives. Perhaps the best thing to do would be to inherit the optimizer class?
   - [ ] consider adding a `Target` objective whose goal is to minimize the least-squares distance from a target value
-  - [ ] consider adding a `NearestFeasible` objective which could be quadratic.
+  - [x] consider adding a `NearestFeasible` objective which could be quadratic.
 
 ## Examples
 
