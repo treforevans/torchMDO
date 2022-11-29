@@ -56,8 +56,8 @@ class BeamFEA(BaseFEA):
         fixed_dofs = self.dof_arr2vec(
             torch.hstack(
                 [
-                    torch.reshape(self.fixed_rotation, (-1, 1)),
                     torch.reshape(self.fixed_translation, (-1, 1)),
+                    torch.reshape(self.fixed_rotation, (-1, 1)),
                 ]
             )
         )
@@ -96,12 +96,16 @@ class BeamFEA(BaseFEA):
                 Units should be in `N/m`.
             f : shape `(n_elems+1, 2)` force vector to use at the nodes. Note that 
                 other forces will be added to this.
+                Units should be in `N`.
         
         Returns:
-            Displacements at each node which is of shape `(n_nodes, 2)`.
+            Displacements at each node which is of shape `(n_nodes, 2)` where
+            `displacements[:, 0]` are the translational displacements and
+            `displacements[:, 1]` are the rotational displacements (in rad).
         """
         if f is not None:
             assert f.size() == (self.n_nodes, self.n_dof)
+            f = f.clone() # make sure we don't overwrite this variable
         else:
             f = torch.zeros((self.n_nodes, self.n_dof))
 
@@ -144,7 +148,9 @@ class BeamFEA(BaseFEA):
             The max strain on each beam section which is of shape `(n_elems,)`
         """
         assert displacements.shape == (self.n_elems + 1, 2)
-        assert self.thicknesses is not None
+        assert (
+            self.thicknesses is not None
+        ), "cannot compute max strain if thicknesses were not specified."
 
         # calculate curvature = d theta / ds
         theta = displacements[:, 1]
@@ -152,7 +158,7 @@ class BeamFEA(BaseFEA):
         curvature = dtheta / self.lengths
 
         # max axial strain
-        maxStrain = -1 * curvature * self.thicknesses / 2
+        maxStrain = -curvature * self.thicknesses / 2
         return maxStrain
 
     def global_stiffness_matrix(self) -> Tensor:
@@ -188,3 +194,4 @@ class BeamFEA(BaseFEA):
     def n_nodes(self) -> int:
         """ Number of nodes in the model. """
         return self.n_elems + 1
+
