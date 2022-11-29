@@ -29,12 +29,13 @@ class TestOptimizer:
         """
         model = RosenbrockModel(x=torch.zeros(2))
         design_variables = [
-            torchmdo.DesignVariable(name="x"),
+            torchmdo.DesignVariable(name="x", scale=2.0),
         ]
         objective = torchmdo.Minimize(
             name="objective_value",
             lower=torch.as_tensor(Rosenbrock.optimal_value) if constrained else None,
             upper=1e3 * torch.ones(()) if constrained else None,
+            scale=1.5,
         )
         constraints = []
         optimizer = torchmdo.Optimizer(
@@ -57,9 +58,9 @@ class TestOptimizer:
             ) = self.setup_rosenbrock(constrained=constrained)
             res = optimizer.optimize(maxiter=10000)
             assert_array_almost_equal(
-                optimizer.variables_tensor.detach(),
+                optimizer.variables_object[0].value.detach(),
                 model.objective_function.minimizer.detach(),
-                decimal=2.5 if constrained else 6,
+                decimal=2 if constrained else 6,
                 err_msg="Failed for constrained = %d" % int(constrained),
             )
 

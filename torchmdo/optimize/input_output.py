@@ -18,6 +18,7 @@ class InputOutput:
     value: Optional[Tensor] = None
     lower: Optional[Tensor] = None
     upper: Optional[Tensor] = None
+    scale: float = 1.0
 
     def __post_init__(self,):
         # check the types and the bounds
@@ -40,6 +41,8 @@ class InputOutput:
             assert torch.all(
                 self.lower <= self.upper
             ), "Lower bound is greater than upper bound."
+        # check the scale
+        assert self.scale > 1e-6, "scale must be positive and non-zero"
 
     def extract_val(self, model: Model):
         """
@@ -182,6 +185,9 @@ class Constraint(Output):
             less than or equal to `upper`.
             If `lower` is also specified and `lower == upper` then this will 
             be an equality constraint.
+        scale: the scale of the expected change in this output.
+            Internally, the output will be scaled such that unit variation is
+            expected. This can help conditioning.
         linear: if True then this constraint will be treated as
             linear in the design variables
             (as specified by :class:`~.DesignVariable`).
@@ -259,6 +265,10 @@ class DesignVariable(InputOutput):
             have a lower bound given by this value.
         upper: if specified, this design variable will
             have an upper bound given by this value.
+        scale: the scale of the expected change in this design variable.
+            Internally, all variables will be scaled such that unit variation is
+            expected. This can help condition and be particularly useful when
+            finite-differences are employed for gradient computations.
         fixed: if True, this design variable should be fixed and it will therefore
             not be changed during optimization.
     """

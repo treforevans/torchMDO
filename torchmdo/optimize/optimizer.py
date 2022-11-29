@@ -122,11 +122,12 @@ class Optimizer:
     @property
     def variables_tensor(self) -> Tensor:
         """
-        returns the variables as a 1d tensor (ignoring the fixed variables)
+        returns the variables as a 1d tensor (ignoring the fixed variables and scaling 
+        appropriately)
         """
         return torch.cat(
             [
-                torch.ravel(dv.value_tensor)
+                torch.ravel(dv.value_tensor) / dv.scale
                 for dv in self.variables_object
                 if not dv.fixed
             ]
@@ -135,7 +136,8 @@ class Optimizer:
     @variables_tensor.setter
     def variables_tensor(self, value: Tensor):
         """
-        setter for variables_tensor property (assuming fixed variables are ignored)
+        setter for variables_tensor property (assuming fixed variables are ignored 
+        and un-scaling appropriately)
         """
         if (
             self._last_variables is None
@@ -151,7 +153,8 @@ class Optimizer:
                     setattr(
                         self.model,
                         idv.name,
-                        torch.reshape(value[i_cur : (i_cur + idv.numel)], idv.shape),
+                        torch.reshape(value[i_cur : (i_cur + idv.numel)], idv.shape)
+                        * idv.scale,
                     )
                     i_cur += idv.numel  # update the position of the index
             assert (
@@ -169,18 +172,19 @@ class Optimizer:
     @property
     def variable_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
         """
-        get bounds for all optimization variables that are not fixed
+        get bounds for all optimization variables that are not fixed, with 
+        appropriate scaling.
         """
         lower = torch.cat(
             [
-                idv.lower_tensor.reshape(-1)
+                idv.lower_tensor.reshape(-1) / idv.scale
                 for idv in self.initial_design_variables
                 if not idv.fixed
             ]
         )
         upper = torch.cat(
             [
-                idv.upper_tensor.reshape(-1)
+                idv.upper_tensor.reshape(-1) / idv.scale
                 for idv in self.initial_design_variables
                 if not idv.fixed
             ]
@@ -188,11 +192,11 @@ class Optimizer:
         return lower, upper
 
     @property
-    def all_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
+    def output_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
         """ get the lower and upper bounds for all the ouputs """
         lower = torch.cat(
             [
-                out.lower_tensor.reshape(-1)
+                out.lower_tensor.reshape(-1) / out.scale
                 if not isinstance(out, NearestFeasible)
                 else -Tensor([float("inf")])
                 for out in self.outputs
@@ -200,7 +204,7 @@ class Optimizer:
         )
         upper = torch.cat(
             [
-                out.upper_tensor.reshape(-1)
+                out.upper_tensor.reshape(-1) / out.scale
                 if not isinstance(out, NearestFeasible)
                 else Tensor([float("inf")])
                 for out in self.outputs
@@ -213,7 +217,7 @@ class Optimizer:
         """
         get bounds for all constrained outputs
         """
-        lower, upper = self.all_bounds_tensor
+        lower, upper = self.output_bounds_tensor
         return lower[self.constrained_output_mask], upper[self.constrained_output_mask]
 
     @cached_property
@@ -222,7 +226,7 @@ class Optimizer:
         Get a boolean tensor indicating which outputs are constrained.
         It is cached since this will never change throughout an optimization.
         """
-        lower, upper = self.all_bounds_tensor
+        lower, upper = self.output_bounds_tensor
         # determine which are constrained (has a finite lower and/or upper bound)
         return torch.logical_or(torch.isfinite(lower), torch.isfinite(upper))
 
@@ -269,7 +273,10 @@ class Optimizer:
                     out.extract_val(model=self.model)
 
     def objective_fun(self, x: Union[ndarray, Tensor]) -> Tensor:
-        """ return the objective """
+        """ 
+        Return the objective.
+        Note that we never do any scaling for the objective.
+        """
         x = as_tensor(x)
         if isinstance(self.outputs[self.objective_index], NearestFeasible):
             # then just compute the distance from the nearest point
@@ -293,7 +300,8 @@ class Optimizer:
 
     def objective_grad(self, x: Union[ndarray, Tensor]) -> Tensor:
         """
-        Compute the gradient of the objective with respect to the input x
+        Compute the gradient of the objective with respect to the input x.
+        Note that we never do any scaling for the objective.
         """
         x = as_tensor(x)
         if isinstance(self.outputs[self.objective_index], NearestFeasible):
@@ -326,7 +334,7 @@ class Optimizer:
     def constraint_fun(
         self, x: Union[ndarray, Tensor], jacobian_computation=False
     ) -> Tensor:
-        """ return the constraints """
+        """ return the constraints, with appropriate scaling """
         x = as_tensor(x)
         if jacobian_computation:
             # explicitly reset the state whether we have computed at this x or not
@@ -338,7 +346,9 @@ class Optimizer:
         self.variables_tensor = x
         self.compute()
         # get all the outputs as a concatenated 1d vector
-        all_outputs = torch.cat([out.value_tensor.reshape(-1) for out in self.outputs])
+        all_outputs = torch.cat(
+            [out.value_tensor.reshape(-1) / out.scale for out in self.outputs]
+        )
         # extract any constrained outputs
         constraints = all_outputs[self.constrained_output_mask]
         # run a quick check
