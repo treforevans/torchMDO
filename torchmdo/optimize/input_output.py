@@ -259,7 +259,11 @@ class DesignVariable(InputOutput):
             have a lower bound given by this value.
         upper: if specified, this design variable will
             have an upper bound given by this value.
+        fixed: if True, this design variable should be fixed and it will therefore
+            not be changed during optimization.
     """
+
+    fixed: bool = False  # set true if this design variable should be fixed
 
     def stringify(self) -> str:
         """

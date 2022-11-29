@@ -122,14 +122,20 @@ class Optimizer:
     @property
     def variables_tensor(self) -> Tensor:
         """
-        returns the variables as a 1d tensor
+        returns the variables as a 1d tensor (ignoring the fixed variables)
         """
-        return torch.cat([torch.ravel(dv.value_tensor) for dv in self.variables_object])
+        return torch.cat(
+            [
+                torch.ravel(dv.value_tensor)
+                for dv in self.variables_object
+                if not dv.fixed
+            ]
+        )
 
     @variables_tensor.setter
     def variables_tensor(self, value: Tensor):
         """
-        setter for variables_tensor property
+        setter for variables_tensor property (assuming fixed variables are ignored)
         """
         if (
             self._last_variables is None
@@ -141,12 +147,13 @@ class Optimizer:
             # then update the model with the new variables
             i_cur = 0  # current variable index
             for idv in self.initial_design_variables:
-                setattr(
-                    self.model,
-                    idv.name,
-                    torch.reshape(value[i_cur : (i_cur + idv.numel)], idv.shape),
-                )
-                i_cur += idv.numel  # update the position of the index
+                if not idv.fixed:
+                    setattr(
+                        self.model,
+                        idv.name,
+                        torch.reshape(value[i_cur : (i_cur + idv.numel)], idv.shape),
+                    )
+                    i_cur += idv.numel  # update the position of the index
             assert (
                 i_cur == value.numel()
             ), "sanity check: did not use all design variables"
@@ -162,13 +169,21 @@ class Optimizer:
     @property
     def variable_bounds_tensor(self) -> Tuple[Tensor, Tensor]:
         """
-        get bounds for all optimization variables
+        get bounds for all optimization variables that are not fixed
         """
         lower = torch.cat(
-            [idv.lower_tensor.reshape(-1) for idv in self.initial_design_variables]
+            [
+                idv.lower_tensor.reshape(-1)
+                for idv in self.initial_design_variables
+                if not idv.fixed
+            ]
         )
         upper = torch.cat(
-            [idv.upper_tensor.reshape(-1) for idv in self.initial_design_variables]
+            [
+                idv.upper_tensor.reshape(-1)
+                for idv in self.initial_design_variables
+                if not idv.fixed
+            ]
         )
         return lower, upper
 
@@ -245,6 +260,7 @@ class Optimizer:
             # extract the outputs
             for out in self.outputs:
                 if isinstance(out, NearestFeasible):
+                    # special case if we are using the nearest feasible objective
                     if hasattr(self, "x0"):
                         out.value = 0.5 * torch.sum(
                             torch.square(self.variables_tensor - self.x0)
@@ -327,8 +343,8 @@ class Optimizer:
         constraints = all_outputs[self.constrained_output_mask]
         # run a quick check
         assert torch.all(torch.isfinite(constraints)), (
-            "Non-finite value encountered in the constraints = %s"
-            % str(constraints.detach())
+            "Non-finite value encountered in the constraints:\n%s"
+            % "\n".join([str(output) for output in self.outputs])
         )
         # return, determining whether to detach or not based on whether the jacobian
         # is being computed
@@ -352,17 +368,20 @@ class Optimizer:
         # - objective_fun - this re-uses the previous computation from objective_grad
         # - constraint_jac
         # - constraint_fun - this re-uses the previous computation from constraint_jac
-        constraint_jac = torch.autograd.functional.jacobian(
-            func=lambda xx: self.constraint_fun(x=xx, jacobian_computation=True),
-            inputs=x,
-            create_graph=False,
-            strict=False,
-            vectorize=self.vectorize_constraint_jac,
+        constraint_jac = cast(
+            Tensor,
+            torch.autograd.functional.jacobian(
+                func=lambda xx: self.constraint_fun(x=xx, jacobian_computation=True),
+                inputs=x,
+                create_graph=False,
+                strict=False,
+                vectorize=self.vectorize_constraint_jac,
+            ),
         )
         # run a quick check
         assert torch.all(torch.isfinite(constraint_jac)), (
             "Non-finite value encountered in the constraint jacobian:\n%s"
-            % str(constraint_jac.detach())
+            % repr(constraint_jac.detach())
         )
         return constraint_jac
 
@@ -416,7 +435,9 @@ class Optimizer:
             constraint_lb, constraint_ub = self.constraint_bounds_tensor
             constraints = NonlinearConstraint(
                 fun=self.constraint_fun,
-                jac=self.constraint_jac if not use_finite_diff else "2-point",
+                jac=self.constraint_jac
+                if not use_finite_diff
+                else "2-point",  # type:ignore
                 lb=constraint_lb,
                 ub=constraint_ub,
                 keep_feasible=keep_feasible,
