@@ -26,10 +26,10 @@ long_description = (this_directory / "README.rst").read_text()
 
 # define essential requirements
 install_requires = [
-    "gpytorch~=1.7.0",
-    "numpy~=1.23.0",
-    "scipy~=1.9.0rc1",
-    "torch~=1.12.0",
+    "gpytorch>=1.7.0",
+    "numpy>=1.23.0",
+    "scipy>=1.9.0rc1",
+    "torch>=1.12.0",
     "torch_interpolations @ git+https://github.com/sbarratt/torch_interpolations.git",
 ]
 # define requirements for various uses
