@@ -7,6 +7,7 @@ from .optimize import (
     Minimize,
     Maximize,
     NearestFeasible,
+    SCBO,
 )
 import torch
 from sys import stdout

@@ -26,6 +26,7 @@ long_description = (this_directory / "README.rst").read_text()
 
 # define essential requirements
 install_requires = [
+    "botorch",
     "gpytorch>=1.7.0",
     "numpy>=1.23.0",
     "scipy>=1.9.0rc1",
