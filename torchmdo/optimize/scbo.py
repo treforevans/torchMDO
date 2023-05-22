@@ -50,9 +50,9 @@ class ScboState:
     length_min: float = 0.5 ** 7
     length_max: float = 1.6
     failure_counter: int = 0
-    failure_tolerance: int = float("nan")  # type: ignore - Note: Post-initialized
+    failure_tolerance: int = cast(int, None)  # Note: Post-initialized
     success_counter: int = 0
-    success_tolerance: int = 10  # Note: The original paper uses 3
+    success_tolerance: int = 3  # Note: The original paper uses 3
     best_value: float = -float("inf")
     best_constraint_values: Tensor = torch.ones(()) * torch.inf
     best_x: Tensor = cast(Tensor, None)
@@ -60,9 +60,12 @@ class ScboState:
     ftol: float = 1e-4
 
     def __post_init__(self):
-        self.failure_tolerance = math.ceil(
-            max([4.0 / self.batch_size, float(self.dim) / self.batch_size])
-        )
+        if self.failure_tolerance is None:
+            self.failure_tolerance = math.ceil(
+                max([4.0 / self.batch_size, float(self.dim) / self.batch_size])
+            )
+        if self.best_x is not None:
+            assert self.best_x.shape == (self.dim,)
 
 
 def update_tr_length(state: ScboState) -> ScboState:
@@ -274,25 +277,36 @@ def get_fitted_model(X: Tensor, Y: Tensor):
 
 
 def dump_state(state: ScboState, filename: str) -> None:
+    """write state to disc in human-readable json format"""
     with torch.no_grad():
+        # convert to dict
         state_dict = asdict(state)
-        state_dict["best_constraint_values"] = state_dict[
-            "best_constraint_values"
-        ].tolist()
-        state_dict["best_x"] = state_dict["best_x"].tolist()
+        # convert tensors to lists
+        for key, val in state_dict.items():
+            if isinstance(val, Tensor):
+                state_dict[key] = val.tolist()
+        # write to disc
         with open(filename, "w", encoding="utf-8") as file:
             json.dump(obj=state_dict, fp=file, ensure_ascii=False, indent=4)
 
 
 def load_state(filename: str) -> ScboState:
+    """read state json file from disc"""
     with torch.no_grad():
+        # read from disc
         with open(filename, "r", encoding="utf-8") as file:
             state_dict = json.load(fp=file)
-        state_dict["best_constraint_values"] = as_tensor(
-            state_dict["best_constraint_values"]
-        )
-        state_dict["best_x"] = as_tensor(state_dict["best_x"])
-        return ScboState(**state_dict)
+        # convert lists to tensors
+        for key, val in state_dict.items():
+            if isinstance(val, list):
+                state_dict[key] = as_tensor(val)
+        # reset counters
+        state_dict["success_counter"] = 0
+        state_dict["failure_counter"] = 0
+        # reset the best value and best constraint values because we will recompute these
+        state_dict["best_value"] = -float("inf")
+        state_dict["best_constraint_values"] = torch.ones(()) * torch.inf
+    return ScboState(**state_dict)
 
 
 class SCBO(Optimizer):
@@ -319,8 +333,10 @@ class SCBO(Optimizer):
     def optimize(
         self,
         batch_size: int = 50,
+        initial_doe_size: int = 50,
         initial_scale=1.0,
         max_gp_size=512,
+        max_candidates: int = 1000,
         seed=0,
         state_init: Union[None, ScboState, str] = None,
         state_dump: Optional[str] = None,
@@ -345,7 +361,7 @@ class SCBO(Optimizer):
         lb, ub = self.variable_bounds_tensor
         # specify number of candidates to use
         # SCBO actually uses min(5000, max(2000, 200 * dim)) candidate points by default.
-        N_CANDIDATES = min(1000, max(400, 40 * dim))
+        N_CANDIDATES = min(max_candidates, max(2000, 200 * dim))
         sobol = SobolEngine(dim, scramble=True, seed=seed)
 
         # start the iterations
@@ -355,8 +371,12 @@ class SCBO(Optimizer):
             while not state.restart_triggered:  # Run until converges
                 if train_X is None or train_Y is None or train_C is None:
                     # generate initial candidates
+                    logger.info(
+                        "Performing initial DOE with %d evaluations in %d dims."
+                        % (initial_doe_size, dim)
+                    )
                     X_next = get_initial_points(
-                        x0=x0, n_pts=batch_size, scale=initial_scale, lb=lb, ub=ub
+                        x0=x0, n_pts=initial_doe_size, scale=initial_scale, lb=lb, ub=ub
                     )
                 else:
                     # Fit GP models for objective and constraints
@@ -470,11 +490,7 @@ class SCBO(Optimizer):
             self.reset_state()  # reset because we don't know what went wrong
         else:
             logger.info("Optimization completed.")
-        assert (
-            isinstance(train_X, Tensor)
-            and isinstance(train_Y, Tensor)
-            and isinstance(train_C, Tensor)
-        ), "no iteration completed"
+        assert isinstance(state.best_x, Tensor), "no best point found yet"
         # set the parameters internally
         self.variables_tensor = state.best_x.clone().detach()
         return state
