@@ -4,6 +4,7 @@ from logging import getLogger
 from typing import Union, Optional, List, Tuple, cast, Dict, Callable
 from warnings import warn, filterwarnings
 from pdb import set_trace
+from bdb import BdbQuit
 from functools import cached_property
 from .input_output import (
     DesignVariable,
@@ -15,7 +16,7 @@ from .input_output import (
 )
 from ..model import Model
 from .optimizer import Optimizer
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import math
 import gpytorch
 from gpytorch.constraints import Interval
@@ -28,7 +29,9 @@ from botorch.models.transforms.outcome import Standardize
 from botorch.generation.sampling import ConstrainedMaxPosteriorSampling
 from botorch.models import SingleTaskGP
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.exceptions.errors import BotorchError, ModelFittingError
 from traceback import print_exc
+import json
 
 logger = getLogger(__name__)
 Tensor = torch.Tensor
@@ -157,14 +160,20 @@ def get_initial_points(
     x0: Tensor, n_pts: int, scale: float, lb: Tensor, ub: Tensor, seed=0
 ) -> Tensor:
     """generate a set of random initial datapoints that we will use to kick-off optimization."""
+    assert n_pts > 1
     x0 = x0.reshape((1, -1))
     assert torch.all(x0 >= lb.unsqueeze(0)), "initial point out of bounds"
     assert torch.all(x0 <= ub.unsqueeze(0)), "initial point out of bounds"
     # first generate samples in the range [-1, +1]
     sobol = SobolEngine(dimension=x0.shape[1], scramble=True, seed=seed)
-    X_samples = 2 * sobol.draw(n=n_pts).to(dtype=dtype, device=device) - 1.0
-    # now add to x0 and scale
-    X_init = x0 + scale * X_samples
+    X_perturb = torch.vstack(
+        [
+            torch.zeros_like(x0),  # add a zero perturbation so x0 will be included
+            2 * sobol.draw(n=n_pts - 1).to(dtype=dtype, device=device) - 1.0,
+        ]
+    )
+    # now add the perturbation to x0 and scale
+    X_init = x0 + scale * X_perturb
     # ensure all points are in bounds
     X_init = torch.clamp(X_init, lb.unsqueeze(0), ub.unsqueeze(0))
     return X_init
@@ -264,6 +273,28 @@ def get_fitted_model(X: Tensor, Y: Tensor):
     return model
 
 
+def dump_state(state: ScboState, filename: str) -> None:
+    with torch.no_grad():
+        state_dict = asdict(state)
+        state_dict["best_constraint_values"] = state_dict[
+            "best_constraint_values"
+        ].tolist()
+        state_dict["best_x"] = state_dict["best_x"].tolist()
+        with open(filename, "w", encoding="utf-8") as file:
+            json.dump(obj=state_dict, fp=file, ensure_ascii=False, indent=4)
+
+
+def load_state(filename: str) -> ScboState:
+    with torch.no_grad():
+        with open(filename, "r", encoding="utf-8") as file:
+            state_dict = json.load(fp=file)
+        state_dict["best_constraint_values"] = as_tensor(
+            state_dict["best_constraint_values"]
+        )
+        state_dict["best_x"] = as_tensor(state_dict["best_x"])
+        return ScboState(**state_dict)
+
+
 class SCBO(Optimizer):
     def constraint_fun(
         self, x: Union[ndarray, Tensor], jacobian_computation=False
@@ -289,25 +320,32 @@ class SCBO(Optimizer):
         self,
         batch_size: int = 50,
         initial_scale=1.0,
-        max_gp_size=256,
+        max_gp_size=512,
         seed=0,
-        state_init: Optional[ScboState] = None,
+        state_init: Union[None, ScboState, str] = None,
+        state_dump: Optional[str] = None,
     ) -> ScboState:
         torch.manual_seed(seed)
-        # compute the current iterate first. This is nessessary since we need to know the dimensions of all the outputs
+        # compute the current iterate first. This is nessessary since we need to know
+        # the dimensions of all the outputs.
         self.compute()
         x0 = self.variables_tensor.detach()
         dim = x0.numel()
         if state_init is None:
             state = ScboState(dim=dim, batch_size=batch_size)
         else:
+            if isinstance(state_init, str):  # load from disc
+                state_init = load_state(filename=state_init)
             assert state_init.dim == dim
             assert state_init.batch_size == batch_size
             state = state_init
+            x0 = (
+                state.best_x.clone().detach()
+            )  # over-ride x0 with the best value so far
         lb, ub = self.variable_bounds_tensor
         # specify number of candidates to use
         # SCBO actually uses min(5000, max(2000, 200 * dim)) candidate points by default.
-        N_CANDIDATES = min(500, max(200, 20 * dim))
+        N_CANDIDATES = min(1000, max(400, 40 * dim))
         sobol = SobolEngine(dim, scramble=True, seed=seed)
 
         # start the iterations
@@ -367,7 +405,7 @@ class SCBO(Optimizer):
                         # then there was a failed run
                         assert (
                             len(success_indices) > 0
-                        ), "no points in the patch succeeded"
+                        ), "no points in the batch succeeded"
                         X_next = X_next[success_indices]
                         assert X_next.shape[0] == len(Y_next) == len(C_next)
 
@@ -406,14 +444,30 @@ class SCBO(Optimizer):
                 # that no points have been found yet which meet the constraints, it is the
                 # objective value of the point with the minimum constraint violation.
                 logger.info(
-                    f"{num_func_evals:d}) Best value: {state.best_value:.6g}, Constraint violation: {state.best_constraint_values.max():.2g}, TR length: {state.length:.2g}"
+                    f"num_eval: {num_func_evals:d}, "
+                    f"fun: {state.best_value:.6g}, "
+                    f"constr_violation: {state.best_constraint_values.max():.2g}, "
+                    f"tr_length: {state.length:.2g}"
                 )
+
+                # save state to file
+                if state_dump is not None:
+                    dump_state(state=state, filename=state_dump)
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt raised. Cleaning up...")
-            self.reset_state() # reset because something could be messed up
+            self.reset_state()  # reset because computation could have ended prematurely
+        except (BotorchError, ModelFittingError):
+            logger.error("Botorch or GP error during optimization.")
+            print_exc()
+            logger.info("Trying to clean up and exit...")
+        except BdbQuit:
+            raise  # this is just the debugger exiting
         except:
-            logger.error("Error during optimization!")
-            raise
+            logger.error("Unknown error during optimization!")
+            print_exc()
+            set_trace()
+            logger.info("Trying to clean up and exit...")
+            self.reset_state()  # reset because we don't know what went wrong
         else:
             logger.info("Optimization completed.")
         assert (
