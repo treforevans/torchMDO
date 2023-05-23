@@ -101,7 +101,8 @@ def update_state(
     violates a constraint, the other valid point is automatically considered to be better. 
     If both points violate some constraints, we compare them inated by their constraint values.
     The better point in this case is the one with minimum total constraint violation
-    (the minimum sum of constraint values)"""
+    (the minimum sum of constraint values)
+    """
 
     # Determine which candidates meet the constraints (are valid)
     bool_tensor = C_next <= 0
@@ -123,6 +124,13 @@ def update_state(
             state.success_counter += 1
             state.failure_counter = 0
             # new best is min violator
+            """
+            TODO: really we could choose any point from the pareto front of violation and objective,
+            for instance, we could instead select to be the point with best objective that decreases the violation.
+            Perhaps we could include a flag that would switch between these two choices.
+            The suggested selection would favor finding a feasible point more slowly but
+            losing as little performance as possible.
+            """
             state.best_value = Y_next[sum_violation.argmin()].item()
             state.best_constraint_values = C_next[sum_violation.argmin()]
             state.best_x = X_next[sum_violation.argmin()]
@@ -458,6 +466,9 @@ class SCBO(Optimizer):
                     train_X = train_X[-max_gp_size:]
                     train_Y = train_Y[-max_gp_size:]
                     train_C = train_C[-max_gp_size:]
+                # run a couple of testing sanity checks
+                assert train_X.shape[0] <= max_gp_size, "dataset size exceeds limit"
+                assert torch.all(train_X[-1] == X_next[-1]), "most recent data lost"
 
                 # Print current status. Note that state.best_value is always the best
                 # objective value found so far which meets the constraints, or in the case
