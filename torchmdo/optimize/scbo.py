@@ -54,7 +54,7 @@ class ScboState:
     success_counter: int = 0
     success_tolerance: int = 3  # Note: The original paper uses 3
     best_value: float = -float("inf")
-    best_constraint_values: Tensor = torch.ones(()) * torch.inf
+    best_constraint_values: Tensor = torch.ones((1)) * torch.inf
     best_x: Tensor = cast(Tensor, None)
     restart_triggered: bool = False
     ftol: float = 1e-4
@@ -100,8 +100,11 @@ def update_state(
     are valid (meet all constraints). If exactly one of the two points being compared 
     violates a constraint, the other valid point is automatically considered to be better. 
     If both points violate some constraints, we compare them inated by their constraint values.
-    The better point in this case is the one with minimum total constraint violation
-    (the minimum sum of constraint values)
+    The better point in this case is the one that:
+    - performs at least as well as the incumbent on all constraints,
+    - performs better in at least one constraint, and
+    - gives the minimum total constraint violation (the minimum sum of violated 
+      constraint values)
     """
 
     # Determine which candidates meet the constraints (are valid)
@@ -111,29 +114,29 @@ def update_state(
     Valid_C_next = C_next[bool_tensor]
     Valid_X_next = X_next[bool_tensor]
     if Valid_Y_next.numel() == 0:  # if none of the candidates are valid
-        # pick the point with minimum sum of violated constraints
-        sum_violation = torch.maximum(torch.zeros(()), C_next).sum(dim=-1)
-        incumbent_violation = torch.maximum(
-            torch.zeros(()), state.best_constraint_values
-        ).sum()
-        min_violation = sum_violation.min()
-        # if the minimum voilation candidate is smaller than the violation of the incumbent
-        # Note this will only be true if the incumbent does not meet all constraints
-        if min_violation < incumbent_violation:
+        # define a candidate as improved if it did not perform worse than the incumbent
+        # best point on any constraint and performed better in at least one.
+        # This check is added to the original method from the paper because it handles
+        # cases with constraints of different magnitudes better.
+        # Note that there can only be an improved point if the incumbent does not meet
+        # all constraints.
+        improved = torch.logical_and(
+            torch.all(C_next <= state.best_constraint_values.unsqueeze(0), dim=-1),
+            torch.any(C_next < state.best_constraint_values.unsqueeze(0), dim=-1),
+        )
+        if torch.any(improved):
             # count a success and update the current best point and constraint values
             state.success_counter += 1
             state.failure_counter = 0
-            # new best is min violator
-            """
-            TODO: really we could choose any point from the pareto front of violation and objective,
-            for instance, we could instead select to be the point with best objective that decreases the violation.
-            Perhaps we could include a flag that would switch between these two choices.
-            The suggested selection would favor finding a feasible point more slowly but
-            losing as little performance as possible.
-            """
-            state.best_value = Y_next[sum_violation.argmin()].item()
-            state.best_constraint_values = C_next[sum_violation.argmin()]
-            state.best_x = X_next[sum_violation.argmin()]
+            # the new best is the improved point with the minimum sum of violated constraints
+            sum_violation = torch.maximum(torch.zeros(()), C_next).sum(dim=-1)
+            i_best = torch.nonzero(improved, as_tuple=True)[0][
+                sum_violation[improved].argmin()
+            ]
+            assert improved[i_best], "sanity check"
+            state.best_value = Y_next[i_best].item()
+            state.best_constraint_values = C_next[i_best]
+            state.best_x = X_next[i_best]
         else:
             # otherwise, count a failure
             state.success_counter = 0
@@ -314,6 +317,8 @@ def load_state(filename: str) -> ScboState:
         # reset the best value and best constraint values because we will recompute these
         state_dict["best_value"] = -float("inf")
         state_dict["best_constraint_values"] = torch.ones(()) * torch.inf
+        # delete the existing length value so it will be set to the default
+        del state_dict["length"]
     return ScboState(**state_dict)
 
 
