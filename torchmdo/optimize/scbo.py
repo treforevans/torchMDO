@@ -20,7 +20,7 @@ from dataclasses import dataclass, asdict
 import math
 import gpytorch
 from gpytorch.constraints import Interval
-from gpytorch.kernels import MaternKernel, ScaleKernel
+from gpytorch.kernels import MaternKernel, ScaleKernel, LinearKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from torch.quasirandom import SobolEngine
@@ -195,12 +195,12 @@ def get_initial_points(
 
 def generate_batch(
     state: ScboState,
-    objective_model,  # GP model
+    objective_model: SingleTaskGP,  # GP model
     X: Tensor,  # Evaluated points on the domain [0, 1]^d
     Y: Tensor,  # Function values
     batch_size: int,
     n_candidates: int,  # Number of candidates for Thompson sampling
-    constraint_model,
+    constraint_model: ModelListGP,
     sobol: SobolEngine,
     lb: Tensor,
     ub: Tensor,
@@ -265,13 +265,18 @@ def generate_batch(
     return X_next
 
 
-def get_fitted_model(X: Tensor, Y: Tensor):
+def get_fitted_model(X: Tensor, Y: Tensor, linear: bool) -> SingleTaskGP:
     likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
-    covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
-        MaternKernel(
-            nu=2.5, ard_num_dims=X.shape[1], lengthscale_constraint=Interval(0.005, 4.0)
+    if linear:
+        covar_module = LinearKernel(num_dimensions=X.shape[1])
+    else:
+        covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
+            MaternKernel(
+                nu=2.5,
+                ard_num_dims=X.shape[1],
+                lengthscale_constraint=Interval(0.005, 4.0),
+            )
         )
-    )
     model = SingleTaskGP(
         X,
         Y,
@@ -393,9 +398,16 @@ class SCBO(Optimizer):
                     )
                 else:
                     # Fit GP models for objective and constraints
-                    objective_model = get_fitted_model(train_X, train_Y)
+                    if self.outputs[self.objective_index].linear:
+                        # NOTE: even if the objective is linear, we assume it is not so that we can access the ARD lengthscales
+                        #     of course, this is not ideal.
+                        warn(
+                            "Although the objective is linear, we assume here that it is nonlinear."
+                        )
+                    objective_model = get_fitted_model(train_X, train_Y, linear=False)
                     constraint_models = [
-                        get_fitted_model(train_X, C.unsqueeze(-1)) for C in train_C.T
+                        get_fitted_model(train_X, C.unsqueeze(-1), linear=linear)
+                        for C, linear in zip(train_C.T, self.constraints_linear)
                     ]
 
                     # Generate a batch of candidates

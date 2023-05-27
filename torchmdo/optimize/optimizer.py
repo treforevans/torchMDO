@@ -236,6 +236,21 @@ class Optimizer:
         return int(torch.count_nonzero(self.constrained_output_mask))
 
     @cached_property
+    def constraints_linear(self) -> List[bool]:
+        """Return an boolean tensor specifying which constraints are linear"""
+        # get all the outputs as a concatenated 1d vector
+        all_outputs_linear = torch.cat(
+            [
+                torch.zeros_like(out.value_tensor.reshape(-1), dtype=torch.bool)
+                + out.linear
+                for out in self.outputs
+            ]
+        )
+        # extract any constrained outputs
+        constraints_linear = all_outputs_linear[self.constrained_output_mask]
+        return constraints_linear.tolist()
+
+    @cached_property
     def constraints_are_all_linear(self) -> bool:
         """ Returns true if all the constraints are linear. """
         return all(out.linear for out in self.outputs if out.is_constrained)
