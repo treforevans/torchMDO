@@ -63,6 +63,7 @@ class Optimizer:
         self.outputs = cast(List[Output], [objective, *constraints])
         self.objective_index = 0  # is always the first one
         # check to make sure that the model has all of the design variables attributes
+        idv_names: List[str] = []
         for idv in initial_design_variables:
             assert isinstance(idv, DesignVariable)
             if not hasattr(self.model, idv.name):
@@ -70,6 +71,12 @@ class Optimizer:
                     "Name '%s' of the design variable does not match an attribute in the Model"
                     % idv.name
                 )
+            elif idv.name in idv_names:
+                raise ValueError(
+                    "Duplicate design variables are provided with name: %s" % idv.name
+                )
+            else:
+                idv_names.append(idv.name)
             # if the initial value of the design variable is not set then extract it
             # from the model
             if idv.value is None:

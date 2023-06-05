@@ -266,9 +266,11 @@ def generate_batch(
 
 
 def get_fitted_model(X: Tensor, Y: Tensor, linear: bool) -> SingleTaskGP:
-    likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
+    likelihood = GaussianLikelihood(noise_constraint=Interval(1e-5, 1e-3))
     if linear:
-        covar_module = LinearKernel(num_dimensions=X.shape[1])
+        covar_module = LinearKernel(
+            num_dimensions=X.shape[1], variance_constraint=Interval(1e-4, 100),
+        )
     else:
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
             MaternKernel(
@@ -373,9 +375,8 @@ class SCBO(Optimizer):
             assert state_init.dim == dim
             assert state_init.batch_size == batch_size
             state = state_init
-            x0 = (
-                state.best_x.clone().detach()
-            )  # over-ride x0 with the best value so far
+            # over-ride x0 with the best value so far
+            x0 = state.best_x.clone().detach()
         lb, ub = self.variable_bounds_tensor
         # specify number of candidates to use
         # SCBO actually uses min(5000, max(2000, 200 * dim)) candidate points by default.
@@ -405,10 +406,22 @@ class SCBO(Optimizer):
                             "Although the objective is linear, we assume here that it is nonlinear."
                         )
                     objective_model = get_fitted_model(train_X, train_Y, linear=False)
-                    constraint_models = [
-                        get_fitted_model(train_X, C.unsqueeze(-1), linear=linear)
-                        for C, linear in zip(train_C.T, self.constraints_linear)
-                    ]
+                    constraint_models = []
+                    for i, (C, linear) in enumerate(
+                        zip(train_C.T, self.constraints_linear)
+                    ):
+                        try:
+                            constraint_models.append(
+                                get_fitted_model(
+                                    train_X, C.unsqueeze(-1), linear=linear
+                                )
+                            )
+                        except:
+                            logger.error(
+                                "Model training failed for constraint %d, linear = %d."
+                                % (i, linear)
+                            )
+                            raise
 
                     # Generate a batch of candidates
                     with gpytorch.settings.max_cholesky_size(max_cholesky_size):

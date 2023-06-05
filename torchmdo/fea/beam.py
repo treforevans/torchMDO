@@ -96,7 +96,8 @@ class BeamFEA(BaseFEA):
                 Units should be in `N/m`.
             f : shape `(n_elems+1, 2)` force vector to use at the nodes. Note that 
                 other forces will be added to this.
-                Units should be in `N`.
+                `f[:, 0]` are the vertical forces (in `N`), and
+                `f[:, 1]` are the torques (in `Nm`).
         
         Returns:
             Displacements at each node which is of shape `(n_nodes, 2)` where
