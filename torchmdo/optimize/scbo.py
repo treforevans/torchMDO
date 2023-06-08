@@ -21,6 +21,7 @@ import math
 import gpytorch
 from gpytorch.constraints import Interval
 from gpytorch.kernels import MaternKernel, ScaleKernel, LinearKernel
+from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from torch.quasirandom import SobolEngine
@@ -266,30 +267,57 @@ def generate_batch(
 
 
 def get_fitted_model(X: Tensor, Y: Tensor, linear: bool) -> SingleTaskGP:
-    likelihood = GaussianLikelihood(noise_constraint=Interval(1e-5, 1e-3))
-    if linear:
-        covar_module = LinearKernel(
-            num_dimensions=X.shape[1], variance_constraint=Interval(1e-4, 100),
-        )
-    else:
-        covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
-            MaternKernel(
-                nu=2.5,
-                ard_num_dims=X.shape[1],
-                lengthscale_constraint=Interval(0.005, 4.0),
+    """
+    Fit a GP in a robust manner using increasing stable constraints to prevent
+    a rank-deficient kernel matrix.
+    """
+    min_noise_variances = [1e-8, 1e-5, 1e-4]  # increasingly stable jitter factors
+    if linear:  # don't bother with the smallest option since using a degenerate kernel
+        min_noise_variances = min_noise_variances[1:]
+    model = None  # initialize (for error- and type-checking)
+    for min_noise_variance in min_noise_variances:
+        try:
+            likelihood = GaussianLikelihood(
+                noise_constraint=Interval(min_noise_variance, 1e-3)
             )
-        )
-    model = SingleTaskGP(
-        X,
-        Y,
-        covar_module=covar_module,
-        likelihood=likelihood,
-        outcome_transform=Standardize(m=1),
-    )
-    mll = ExactMarginalLogLikelihood(model.likelihood, model)
+            if linear:  # use a linear kernel
+                covar_module = LinearKernel(
+                    num_dimensions=X.shape[1], variance_constraint=Interval(1e-4, 100),
+                )
+                # include a learnable constant mean because there is no constant feature in the linear kernel
+                mean_module = ConstantMean()
+            else:  # Use Matern52 kernel with the same lengthscale constraint as in the TuRBO paper
+                covar_module = ScaleKernel(
+                    MaternKernel(
+                        nu=2.5,
+                        ard_num_dims=X.shape[1],
+                        lengthscale_constraint=Interval(0.005, 4.0),
+                    )
+                )
+                mean_module = None
+            model = SingleTaskGP(
+                X,
+                Y,
+                covar_module=covar_module,
+                mean_module=mean_module,
+                likelihood=likelihood,
+                outcome_transform=Standardize(m=1),
+            )
+            mll = ExactMarginalLogLikelihood(model.likelihood, model)
 
-    with gpytorch.settings.max_cholesky_size(max_cholesky_size):
-        fit_gpytorch_mll(mll)
+            with gpytorch.settings.max_cholesky_size(max_cholesky_size):
+                fit_gpytorch_mll(mll)
+        except ModelFittingError:
+            logger.critical(
+                "Model fitting failed for min_noise_variance %.1g" % min_noise_variance
+            )
+            if min_noise_variance < min_noise_variances[-1]:
+                continue
+            else:  # there are no more stable options to try so just raise
+                raise
+        else:
+            break
+    assert model is not None  # sanity check for type checking
 
     return model
 
@@ -360,6 +388,7 @@ class SCBO(Optimizer):
         seed=0,
         state_init: Union[None, ScboState, str] = None,
         state_dump: Optional[str] = None,
+        **state_init_kwargs
     ) -> ScboState:
         torch.manual_seed(seed)
         # compute the current iterate first. This is nessessary since we need to know
@@ -368,7 +397,7 @@ class SCBO(Optimizer):
         x0 = self.variables_tensor.detach()
         dim = x0.numel()
         if state_init is None:
-            state = ScboState(dim=dim, batch_size=batch_size)
+            state = ScboState(dim=dim, batch_size=batch_size, **state_init_kwargs)
         else:
             if isinstance(state_init, str):  # load from disc
                 state_init = load_state(filename=state_init)
